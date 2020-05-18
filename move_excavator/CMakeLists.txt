@@ -9,11 +9,6 @@ project(move_excavator)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   roscpp
-<<<<<<< HEAD
-  std_msgs
-  geometry_msgs
-  message_generation
-=======
   rospy
   std_msgs
   geometry_msgs
@@ -21,17 +16,12 @@ find_package(catkin REQUIRED COMPONENTS
   motion_control
   cv_bridge
   message_filters
->>>>>>> feature/control
 )
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
-<<<<<<< HEAD
-
-=======
 find_package( OpenCV REQUIRED )
->>>>>>> feature/control
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
 ## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
@@ -64,17 +54,6 @@ find_package( OpenCV REQUIRED )
 ## Generate messages in the 'msg' folder
 add_message_files(
   FILES
-<<<<<<< HEAD
-  JointGroup.msg
-)
-
-## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
-=======
   MultiAgentState.msg
   ExcavationStatus.msg
 )
@@ -87,13 +66,7 @@ add_service_files(
   DropVolatile.srv
   DigVolatile.srv
   Scoop.srv
-  MoveForward.srv
-  Stop.srv
-  CirculateBaseStation.srv
-  RotateInPlace.srv
-  MoveForward.srv
 )
->>>>>>> feature/control
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -139,14 +112,6 @@ generate_messages(
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-<<<<<<< HEAD
-#  INCLUDE_DIRS include
-#  LIBRARIES move_excavator
-  CATKIN_DEPENDS message_runtime std_msgs geometry_msgs
-#  DEPENDS system_lib
-)
-
-=======
   INCLUDE_DIRS include
   LIBRARIES motion_control
   CATKIN_DEPENDS message_runtime std_msgs geometry_msgs motion_control cv_bridge message_filters 
@@ -154,7 +119,6 @@ catkin_package(
 )
 
 
->>>>>>> feature/control
 ###########
 ## Build ##
 ###########
@@ -162,15 +126,6 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-<<<<<<< HEAD
-# include
-  ${catkin_INCLUDE_DIRS}
-)
-
-## Declare a C++ library
-# add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/move_excavator.cpp
-=======
  include
   ../../../install/include
   ${catkin_INCLUDE_DIRS}
@@ -180,7 +135,6 @@ include_directories(
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
 #   src/${PROJECT_NAME}/  .cpp
->>>>>>> feature/control
 # )
 
 ## Add cmake target dependencies of the library
@@ -191,20 +145,6 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-<<<<<<< HEAD
-
-add_executable(cmd_joints_group src/cmd_joints_group.cpp)
-target_link_libraries(cmd_joints_group ${catkin_LIBRARIES})
-add_dependencies(cmd_joints_group move_excavator_generate_messages_cpp)
-
-add_executable(inverse_kinematics src/inverse_kinematics.cpp)
-target_link_libraries(inverse_kinematics ${catkin_LIBRARIES})
-add_dependencies(inverse_kinematics move_excavator_generate_messages_cpp)
-
-add_executable(teleop_joints_key src/teleop_joints_key.cpp)
-target_link_libraries(teleop_joints_key ${catkin_LIBRARIES})
-add_dependencies(teleop_joints_key move_excavator_generate_messages_cpp)
-=======
 # add_executable(${PROJECT_NAME}_node src/move_arm_node.cpp)
 
 add_executable(manipulation src/manipulation.cpp)
@@ -215,14 +155,10 @@ add_executable(move_arm src/move_arm.cpp)
 target_link_libraries(move_arm ${catkin_LIBRARIES})
 add_dependencies(move_arm move_excavator_generate_messages_cpp)
 
-add_executable(driving_tools src/driving_tools.cpp)
-target_link_libraries(driving_tools ${catkin_LIBRARIES})
-add_dependencies(driving_tools move_excavator_generate_messages_cpp)
-
 add_executable(find_rover src/find_rover.cpp)
-target_link_libraries(find_rover ${catkin_LIBRARIES} ${OpenCV_LIBS})
+target_link_libraries(find_rover ${catkin_LIBRARIES} ${OpenCV_LIBS} )
+add_dependencies(find_rover move_excavator_generate_messages_cpp)
 
->>>>>>> feature/control
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -234,19 +170,6 @@ target_link_libraries(find_rover ${catkin_LIBRARIES} ${OpenCV_LIBS})
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-<<<<<<< HEAD
-target_link_libraries(teleop_joints_key
-  ${catkin_LIBRARIES}
-)
-
-target_link_libraries(cmd_joints_group
-  ${catkin_LIBRARIES}
-)
-
-target_link_libraries(inverse_kinematics
-  ${catkin_LIBRARIES}
-)
-=======
 # target_link_libraries(${PROJECT_NAME}_node
 #   ${catkin_LIBRARIES}
 # )
@@ -256,7 +179,6 @@ target_link_libraries(move_arm
   ${catkin_LIBRARIES}
 )
 
->>>>>>> feature/control
 #############
 ## Install ##
 #############
@@ -286,19 +208,11 @@ target_link_libraries(move_arm
 # )
 
 ## Mark cpp header files for installation
-<<<<<<< HEAD
-# install(DIRECTORY include/${PROJECT_NAME}/
-#   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-#   FILES_MATCHING PATTERN "*.h"
-#   PATTERN ".svn" EXCLUDE
-# )
-=======
 install(DIRECTORY include/${PROJECT_NAME}/
    DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
    FILES_MATCHING PATTERN "*.h"
    PATTERN ".svn" EXCLUDE
  )
->>>>>>> feature/control
 
 ## Mark other files for installation (e.g. launch and bag files, etc.)
 # install(FILES
@@ -312,11 +226,7 @@ install(DIRECTORY include/${PROJECT_NAME}/
 #############
 
 ## Add gtest based cpp test target and link libraries
-<<<<<<< HEAD
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_move_excavator.cpp)
-=======
 # catkin_add_gtest(${PROJECT_NAME}-test test/test_move_arm.cpp)
->>>>>>> feature/control
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()

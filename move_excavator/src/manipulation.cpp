@@ -25,9 +25,9 @@ Manipulation::Manipulation(ros::NodeHandle & nh)
   clientHomeArm = nh_.serviceClient<move_excavator::HomeArm>("home_arm");
   clientExtendArm = nh_.serviceClient<move_excavator::ExtendArm>("extend_arm");
   clientDropVolatile = nh_.serviceClient<move_excavator::DropVolatile>("drop_volatile");
-  clientRotateInPlace = nh_.serviceClient<move_excavator::RotateInPlace>("rotate_in_place");
-  clientMoveForward = nh_.serviceClient<move_excavator::MoveForward>("move_forward");
-  clientStop = nh_.serviceClient<move_excavator::Stop>("stop");
+  clientRotateInPlace = nh_.serviceClient<driving_tools::RotateInPlace>("rotate_in_place");
+  clientMoveForward = nh_.serviceClient<driving_tools::MoveForward>("move_forward");
+  clientStop = nh_.serviceClient<driving_tools::Stop>("stop");
 
   isBucketFull = false;
   isArmHome = false;
@@ -112,14 +112,14 @@ void Manipulation::alignCallback(const move_excavator::MultiAgentState::ConstPtr
     if(!isRoverInRange && !isRoverInView)
     {
       ROS_INFO("Rotating In Place.");
-      move_excavator::RotateInPlace srv;
+      driving_tools::RotateInPlace srv;
       srv.request.throttle = 0.5;
       bool success = clientRotateInPlace.call(srv);
     }
     else if(isRoverInView && !isRoverInRange)
     {
       ROS_INFO("Coming Closer.");
-      move_excavator::MoveForward srv;
+      driving_tools::MoveForward srv;
       srv.request.throttle = 0.5;
       bool success = clientMoveForward.call(srv);
     }
@@ -128,14 +128,14 @@ void Manipulation::alignCallback(const move_excavator::MultiAgentState::ConstPtr
       ROS_INFO("Stopping.");
       isAligned = true;
       enableAlign = false;
-      move_excavator::Stop srv;
+      driving_tools::Stop srv;
       srv.request.enableStop = true;
       bool success = clientStop.call(srv);
     }
     else
     {
       ROS_INFO("Something in front of me, but not the hauler.");
-      move_excavator::Stop srv;
+      driving_tools::Stop srv;
       srv.request.enableStop = true;
       bool success = clientStop.call(srv);
     }     

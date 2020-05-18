@@ -1,22 +1,6 @@
-<<<<<<< HEAD
-<launch>
-
-  <!-- load the commander -->
-  <node name="cmd_joints_group" pkg="move_excavator" type="cmd_joints_group"
-	respawn="false" output="screen" ns="/excavator_1"/>
-
-  <!-- load the IK calculator -->
-  <node name="inverse_kinematics" pkg="move_excavator" type="inverse_kinematics" 
-  respawn="false" output="screen" ns="/excavator_1"/>
-=======
 <launch> 
 
   <group ns="excavator_1">
-    <node pkg="move_excavator"
-          name="driving_tools"
-          type="driving_tools"
-          output="screen">
-    </node>
 
     <node pkg="move_excavator"
           name="find_rover"
@@ -38,6 +22,5 @@
     <!-- rosparam command="load" file="$(find wvu_vo_ros)/config/parameters.yaml"/> -->
     
   </group>
->>>>>>> feature/control
 
 </launch>

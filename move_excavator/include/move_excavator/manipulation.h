@@ -25,9 +25,9 @@
 // Custom message includes. Auto-generated from msg/ directory.
 #include <srcp2_msgs/ExcavatorMsg.h>
 #include <motion_control/JointGroup.h>
-#include <move_excavator/RotateInPlace.h>
-#include <move_excavator/Stop.h>
-#include <move_excavator/MoveForward.h>
+#include <driving_tools/RotateInPlace.h>
+#include <driving_tools/Stop.h>
+#include <driving_tools/MoveForward.h>
 #include <move_excavator/HomeArm.h>
 #include <move_excavator/ExtendArm.h>
 #include <move_excavator/DropVolatile.h>

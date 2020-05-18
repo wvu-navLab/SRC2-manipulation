@@ -13,32 +13,20 @@
   <!-- One license tag required, multiple allowed, one license per tag -->
   <!-- Commonly used license strings: -->
   <!--   BSD, MIT, Boost Software License, GPLv2, GPLv3, LGPLv2.1, LGPLv3 -->
-<<<<<<< HEAD
-  <license>MIT</license>
-=======
   <license>BSD</license>
->>>>>>> feature/control
 
 
   <!-- Url tags are optional, but multiple are allowed, one per tag -->
   <!-- Optional attribute type can be: website, bugtracker, or repository -->
   <!-- Example: -->
   <!-- <url type="website">http://wiki.ros.org/move_excavator</url> -->
-<<<<<<< HEAD
   <url type="website">http://github.com/bmrocamora</url> 
-=======
-
->>>>>>> feature/control
 
   <!-- Author tags are optional, multiple are allowed, one per tag -->
   <!-- Authors do not have to be maintainers, but could be -->
   <!-- Example: -->
   <!-- <author email="jane.doe@example.com">Jane Doe</author> -->
-<<<<<<< HEAD
   <author email="bm00002@mix.wvu.edu">Bernardo Martinez</author>
-=======
-
->>>>>>> feature/control
 
   <!-- The *depend tags are used to specify dependencies -->
   <!-- Dependencies can be catkin packages or system dependencies -->
@@ -60,26 +48,6 @@
   <!--   <test_depend>gtest</test_depend> -->
   <!-- Use doc_depend for packages you need only for building documentation: -->
   <!--   <doc_depend>doxygen</doc_depend> -->
-<<<<<<< HEAD
-
-
-  <buildtool_depend>catkin</buildtool_depend>
-
-  <build_depend>roscpp</build_depend>
-  <build_depend>std_msgs</build_depend>
-  <build_depend>geometry_msgs</build_depend>
-  <build_depend>message_generation</build_depend>
-  
-  <build_export_depend>roscpp</build_export_depend>
-  <build_export_depend>std_msgs</build_export_depend>
-  <build_export_depend>geometry_msgs</build_export_depend>
-
-  <exec_depend>roscpp</exec_depend>
-  <exec_depend>std_msgs</exec_depend>
-  <exec_depend>geometry_msgs</exec_depend>
-  <exec_depend>message_runtime</exec_depend>
-
-=======
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>roscpp</build_depend>
   <build_depend>rospy</build_depend>
@@ -107,7 +75,6 @@
   <exec_depend>motion_control</exec_depend>
   <exec_depend>cv_bridge</exec_depend>
   <exec_depend>message_filters</exec_depend>
->>>>>>> feature/control
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

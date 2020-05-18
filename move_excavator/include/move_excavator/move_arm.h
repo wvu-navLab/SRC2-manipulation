@@ -24,7 +24,6 @@
 
 // Custom message includes. Auto-generated from msg/ directory.
 #include <motion_control/JointGroup.h>
-#include <move_excavator/MoveForward.h>
 #include <move_excavator/HomeArm.h>
 #include <move_excavator/ExtendArm.h>
 #include <move_excavator/DropVolatile.h>
