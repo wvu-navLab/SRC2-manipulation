@@ -2,11 +2,11 @@
 
   <group ns="excavator_1">
 
-    <node pkg="move_excavator"
+    <!-- <node pkg="move_excavator"
           name="find_rover"
           type="find_rover"
           output="screen">
-    </node>
+    </node> -->
 
     <node pkg="move_excavator"
           name="move_arm"
@@ -14,11 +14,11 @@
           output="screen">
     </node>
 
-    <!--node pkg="move_excavator"
+    <node pkg="move_excavator"
           name="manipulation"
           type="manipulation"
           output="screen">
-    </node> -->
+    </node>
     <!-- rosparam command="load" file="$(find wvu_vo_ros)/config/parameters.yaml"/> -->
     
   </group>

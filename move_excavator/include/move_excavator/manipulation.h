@@ -19,25 +19,35 @@
 #include <ros/ros.h>
 #include <ros/console.h>
 #include <std_msgs/Int64.h>
-#include <geometry_msgs/Twist.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Matrix3x3.h>
 #include <sensor_msgs/JointState.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <nav_msgs/Odometry.h>
 
 // Custom message includes. Auto-generated from msg/ directory.
 #include <srcp2_msgs/ExcavatorMsg.h>
+
 #include <motion_control/JointGroup.h>
+#include <move_excavator/MultiAgentState.h>
+#include <move_excavator/ExcavationStatus.h>
+
 #include <driving_tools/RotateInPlace.h>
 #include <driving_tools/Stop.h>
 #include <driving_tools/MoveForward.h>
+
 #include <move_excavator/HomeArm.h>
+#include <move_excavator/DigVolatile.h>
+#include <move_excavator/Scoop.h>
 #include <move_excavator/ExtendArm.h>
 #include <move_excavator/DropVolatile.h>
-#include <move_excavator/MultiAgentState.h>
-#include <move_excavator/ExcavationStatus.h>
+#include <move_excavator/ExcavatorFK.h>
 
 #define PI 3.141592653589793
 /*!
  * \def JOINT LIMITS
  */
+
 #define JOINT1_MAX PI
 #define JOINT1_MIN -PI
 #define JOINT2_MAX PI/3
@@ -47,16 +57,45 @@
 #define JOINT4_MAX 5*PI/4
 #define JOINT4_MIN 0
 
+
+
+#define HOME_MODE 0
+#define DIG_MODE 1
+#define SCOOP_MODE 2
+#define EXTEND_MODE 3
+#define DROP_MODE 4
+
+
 class Manipulation
 {
 public:
   // Constructor.
   Manipulation(ros::NodeHandle & nh);
 
-  // Callback function for subscriber.
-  void goalCallback(const geometry_msgs::Twist::ConstPtr &msg);
+  // Callback function for subscriber
+  void jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg);
+  void odometryCallback(const nav_msgs::Odometry::ConstPtr &msg);
   void bucketCallback(const srcp2_msgs::ExcavatorMsg::ConstPtr &msg);
+
+  // Callback function for subscriber.
+  void goalCallback(const geometry_msgs::PoseStamped::ConstPtr &msg);
   void alignCallback(const move_excavator::MultiAgentState::ConstPtr &msg);
+  void debugCallback(const std_msgs::Int64::ConstPtr &msg);
+
+  // State-machine mode
+  int mode = HOME_MODE;
+
+  // Flags Init
+  bool isManipulationStep_ = false;
+  bool isBucketFull_ = false;
+  bool isHaulerInView_ = false;
+  bool isHaulerInRange_ = false;
+
+  void executeHomeArm();
+  void executeDig();
+  void executeScoop();
+  void executeExtendArm();
+  void executeDrop();
 
 private:
   // Node Handle
@@ -64,11 +103,15 @@ private:
 
   // Publisher
   ros::Publisher pubFinished;
+  ros::Publisher pubOdometryVolatile;
 
   // Subscriber
+  ros::Subscriber subOdometry;
+  ros::Subscriber subJointStates;
   ros::Subscriber subGoalVolatile;
   ros::Subscriber subBucketInfo;
   ros::Subscriber subMultiAgent;
+  ros::Subscriber subDebug;
 
   // Clients
   ros::ServiceClient clientHomeArm;
@@ -76,23 +119,55 @@ private:
   ros::ServiceClient clientDigVolatile;
   ros::ServiceClient clientScoop;
   ros::ServiceClient clientDropVolatile;
+
+  ros::ServiceClient clientFK;
+
   ros::ServiceClient clientRotateInPlace;
   ros::ServiceClient clientMoveForward;
   ros::ServiceClient clientStop;
 
-  // End effector position
-  double x_goal, y_goal, z_goal, phi_goal;
-  Eigen::VectorXd pos_goal = Eigen::VectorXd::Zero(3);
+  // End-effector Pose Init
+  geometry_msgs::PoseStamped eePose; 
 
-  bool isBucketFull;
-  bool isArmHome;
-  bool enableAlign;
-  bool isAligned;
+  // Rover Pose Init
+  double posx_ = 0.0;
+  double posy_ = 0.0;
+  double posz_ = 0.0;
+  double orientx_ = 0.0;
+  double orienty_ = 0.0;
+  double orientz_ = 0.0;
+  double orientw_ = 0.0;
+  /* double linvelx = 0.0;
+  double linvely = 0.0;
+  double linvelz = 0.0;
+  double angvelx = 0.0;
+  double angvely = 0.0;
+  double angvelz = 0.0; */
 
-  double mass_collected;
+  // Joint Positions Init
+  double q1_pos_ = 0.0;
+  double q2_pos_ = 0.0;
+  double q3_pos_ = 0.0;
+  double q4_pos_ = 0.0;
 
-  void callExtendArm();
-  void callDropVolatile();
+  // Bucket Info Init
+  double mass_in_bucket_ = 0.0;
+  // double mass_collected = 0.0;
+
+  // Goal Volatile Pos Init
+  double x_goal_ = 0.0;
+  double y_goal_ = 0.0;
+  double z_goal_ = 0.0;
+  double phi_goal_ = 0.0;
+  Eigen::VectorXd pos_goal_ = Eigen::VectorXd::Zero(3);
+
+
+  // bool isArmHome = false;
+  // bool enableAlign = false;
+  // bool isAligned = false;
+
+  void getForwardKinematics();
+  void updateLocalization();
 };
 
 #endif // MANIPULATION_H

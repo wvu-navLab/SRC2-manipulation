@@ -14,12 +14,13 @@
 #include <math.h>
 #include <stdio.h> 
 #include <eigen3/Eigen/Dense>
+#include <tf2/convert.h>
 
 // ROS includes.
 #include <ros/ros.h>
 #include <ros/console.h>
 #include <std_msgs/Int64.h>
-#include <geometry_msgs/Twist.h>
+#include <geometry_msgs/PoseStamped.h>
 #include <sensor_msgs/JointState.h>
 
 // Custom message includes. Auto-generated from msg/ directory.
@@ -29,6 +30,7 @@
 #include <move_excavator/DropVolatile.h>
 #include <move_excavator/Scoop.h>
 #include <move_excavator/DigVolatile.h>
+#include <move_excavator/ExcavatorFK.h>
 
 #define PI 3.141592653589793
 
@@ -50,30 +52,20 @@ public:
   // Constructor
   MoveArm(ros::NodeHandle & nh);
 
-  // Destructor
-  ~MoveArm();
-
-  // Callback function for subscriber
-  void jointsCallback(const sensor_msgs::JointState::ConstPtr &msg);
-
   // Services
   bool HomeArm(move_excavator::HomeArm::Request  &req, move_excavator::HomeArm::Response &res);
   bool ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator::ExtendArm::Response &res);
   bool DropVolatile(move_excavator::DropVolatile::Request  &req, move_excavator::DropVolatile::Response &res);
   bool Scoop(move_excavator::Scoop::Request  &req, move_excavator::Scoop::Response &res);
   bool DigVolatile(move_excavator::DigVolatile::Request  &req, move_excavator::DigVolatile::Response &res);
+  bool ExcavatorFK(move_excavator::ExcavatorFK::Request &req, move_excavator::ExcavatorFK::Response &res);
 
 private:
   // Node Handle
   ros::NodeHandle & nh_;
 
-  bool armControlEnabled;
-
   // Publishers
   ros::Publisher pubJointAngles; 
-
-  // Subscribers
-  ros::Subscriber subJointsStates; 
 
   // Service Servers
   ros::ServiceServer serverHomeArm;
@@ -81,15 +73,35 @@ private:
   ros::ServiceServer serverDropVolatile;
   ros::ServiceServer serverScoop;
   ros::ServiceServer serverDigVolatile;
+  ros::ServiceServer serverFK;
 
   // Message
   motion_control::JointGroup q;
+
+  // Link lengths
+  double h0;
+  double l1, h1, d1;
+  double l2, h2, a2;
+  double l3, h3, a3;
+  double l4, h4, a4;
+  double th2, th3, th4;
+
+  double th2_star, th3_star, th4_star;
+
+  double max_pos_error = 0.05;
+  double max_q4_error = 0.01;
+  double dt = 0.02;
+  double K_pos = 30;
+  double K_q4 = 0.2;
 
   // End effector position
   double x_goal, y_goal, z_goal, phi_goal;
 
   // Joint angles
-  double q1_goal, q2_goal, q3_goal, q4_goal;
+  double q1_goal = 0.0;
+  double q2_goal = 0.0;
+  double q3_goal = 0.0;
+  double q4_goal = 0.0;
 
   Eigen::VectorXd a_DH = Eigen::VectorXd::Zero(5);
   Eigen::VectorXd alpha_DH = Eigen::VectorXd::Zero(5);
@@ -108,29 +120,14 @@ private:
   Eigen::MatrixXd transl(double x, double y, double z);
 
   // Kinematic Functions
-  void forwardKinematics();
-  void inverseKinematics();
-  void getJacobian();
-  void invertJacobian();
+  geometry_msgs::PoseStamped calculateFK(double q1, double q2, double q3, double q4);
+
+  // Flags
+  bool armControlEnabled_ = false;
 
   // Geometric Functions
   void constrainAngle(double& q_);
   void limitJoint(double& q_, double max_, double min_);
-
-
-  // Link lengths
-  double h0;
-  double l1, h1, d1;
-  double l2, h2, a2;
-  double l3, h3, a3;
-  double l4, h4, a4;
-  double th2, th3, th4;
-
-  double th2_star, th3_star, th4_star;
-
-  double max_pos_error, max_q4_error;
-  double dt;
-  double K_pos, K_q4;
 };
 
 #endif // MOVE_ARM_H

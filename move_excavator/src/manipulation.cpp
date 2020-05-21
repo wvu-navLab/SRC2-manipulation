@@ -13,154 +13,227 @@
 Manipulation::Manipulation(ros::NodeHandle & nh)
 : nh_(nh)
 {
-  // Subscribers
+  // Publishers
   pubFinished = nh_.advertise<move_excavator::ExcavationStatus>("/excavation_status", 1000);
+  pubOdometryVolatile = nh_.advertise<nav_msgs::Odometry>("/odom_volatile", 1000);
 
   // Subscribers
-  subGoalVolatile = nh_.subscribe("/volatile_pos", 1000, &Manipulation::goalCallback, this);
+  subJointStates = nh_.subscribe("joint_states", 1000, &Manipulation::jointStateCallback, this);
+  subOdometry = nh_.subscribe("odom_truth", 1000, &Manipulation::odometryCallback, this);
   subBucketInfo = nh_.subscribe("bucket_info", 1000, &Manipulation::bucketCallback, this);
+  subGoalVolatile = nh_.subscribe("/volatile_pos", 1000, &Manipulation::goalCallback, this);
   subMultiAgent = nh_.subscribe("/multiAgent", 1000, &Manipulation::alignCallback, this);
+  subDebug =  nh_.subscribe("/debug", 1000, &Manipulation::debugCallback, this);
 
   // Service Clients
+  clientFK = nh_.serviceClient<move_excavator::ExcavatorFK>("excavator_fk");
+
   clientHomeArm = nh_.serviceClient<move_excavator::HomeArm>("home_arm");
+  clientDigVolatile = nh_.serviceClient<move_excavator::DigVolatile>("dig_volatile");
+  clientScoop = nh_.serviceClient<move_excavator::Scoop>("scoop");
   clientExtendArm = nh_.serviceClient<move_excavator::ExtendArm>("extend_arm");
   clientDropVolatile = nh_.serviceClient<move_excavator::DropVolatile>("drop_volatile");
+  
   clientRotateInPlace = nh_.serviceClient<driving_tools::RotateInPlace>("rotate_in_place");
   clientMoveForward = nh_.serviceClient<driving_tools::MoveForward>("move_forward");
   clientStop = nh_.serviceClient<driving_tools::Stop>("stop");
-
-  isBucketFull = false;
-  isArmHome = false;
-  isAligned = false;
-  enableAlign = false;
-  mass_collected = 0;
 }
 
-void Manipulation::goalCallback(const geometry_msgs::Twist::ConstPtr &msg)
+void Manipulation::jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg)
 {
-  x_goal = msg->linear.x;
-  y_goal = msg->linear.y;
-  z_goal = msg->linear.z;
-  phi_goal = msg->angular.z;
+  // Find current angles and position
+  q1_pos_ = msg->position[15];
+  q2_pos_ = msg->position[0];
+  q3_pos_ = msg->position[8];
+  q4_pos_ = msg->position[7];
+  ROS_INFO("Joint states updated.");
+  ROS_INFO_STREAM("Values "<< q1_pos_<<" "<< q2_pos_<< " "<< q3_pos_<< " "<< q4_pos_);
+}
 
-  pos_goal << x_goal, y_goal, z_goal;
-
-  ROS_INFO("New position goal");
-
-  if(mass_collected>98)
-  {
-    move_excavator::ExcavationStatus msg;
-    msg.isFinished = true;
-    msg.collectedMass = 100;
-    pubFinished.publish(msg);
-    mass_collected = 0;
-  }
+void Manipulation::odometryCallback(const nav_msgs::Odometry::ConstPtr &msg)
+{
+  // Find current angles and position
+  posx_ = msg->pose.pose.position.x;
+  posy_ = msg->pose.pose.position.y;
+  posz_ = msg->pose.pose.position.z;
+  orientx_ = msg->pose.pose.orientation.x;
+  orienty_ = msg->pose.pose.orientation.y;
+  orientz_ = msg->pose.pose.orientation.z;
+  orientw_ = msg->pose.pose.orientation.w;
+  /* linvelx = msg->twist.linear.x;
+  linvely = msg->twist.linear.y;
+  linvelz = msg->twist.linear.z;
+  angvelx = msg->twist.angular.x;
+  angvely = msg->twist.angular.y;
+  angvelz = msg->twist.angular.z;
+  */
+  ROS_INFO("Odometry updated.");
 }
 
 void Manipulation::bucketCallback(const srcp2_msgs::ExcavatorMsg::ConstPtr &msg)
 {
-  if(!isBucketFull)
+  mass_in_bucket_ = msg->mass_in_bucket;
+  if (mass_in_bucket_ != 0)
   {
-    double mass = msg->mass_in_bucket;
-    mass_collected = mass_collected + mass;
-    if (mass != 0)
-    {
-      isBucketFull = true;
-      ROS_INFO("A Pokémon is on the hook!");
-      ROS_INFO_STREAM("Mass extracted so far:" << mass_collected);
-      ROS_INFO_STREAM("Mass extracted this time:" << mass);
-      ROS_INFO("Homing the manipulator..");
-      move_excavator::HomeArm srv;
-      bool success = clientHomeArm.call(srv);
-      ros::Duration(10).sleep();
-      isArmHome = true;
-    }
-    else
-    {
-      ROS_INFO("Nothing on the bucket.");
-      isBucketFull = false;
-    }
+    isBucketFull_ = true;
+    ROS_INFO("A Pokémon is on the hook!");
   }
   else
   {
-    if(isArmHome)
-    {
-      if(isAligned)
-      {
-        ROS_INFO("Extending Arm.");
-        callExtendArm();
-        ROS_INFO("Dropping Volatile.");
-        callDropVolatile();
-        enableAlign = false;
-        isAligned = false;
-      }
-      else
-      {
-        ROS_INFO("Enabling Align.");
-        enableAlign = true;
-      }
-    }
+    isBucketFull_ = false;
+    // ROS_INFO("Nothing on the bucket.");
   }
+}
+
+void Manipulation::goalCallback(const geometry_msgs::PoseStamped::ConstPtr &msg)
+{
+  x_goal_ = msg->pose.position.x;
+  y_goal_ = msg->pose.position.y;
+  z_goal_ = msg->pose.position.z;
+  /* orientx_goal = msg->pose.orientation.x;
+  orienty_goal = msg->pose.orientation.y;
+  orientz_goal = msg->pose.orientation.z;
+  orientw_goal = msg->pose.orientation.w;
+ */
+  pos_goal_ << x_goal_, y_goal_, z_goal_;
+
+  ROS_INFO("Goal updated.");
 }
 
 void Manipulation::alignCallback(const move_excavator::MultiAgentState::ConstPtr &msg)
 {
-  bool isRoverInView = msg->isRoverInView;
-  bool isRoverInRange = msg->isRoverInRange;
-  if(enableAlign)
+  isHaulerInView_ = msg->isRoverInView;
+  isHaulerInRange_ = msg->isRoverInRange;
+}
+
+void Manipulation::debugCallback(const std_msgs::Int64::ConstPtr &msg)
+{
+  switch (msg->data)
   {
-    if(!isRoverInRange && !isRoverInView)
+  case HOME_MODE:
     {
-      ROS_INFO("Rotating In Place.");
-      driving_tools::RotateInPlace srv;
-      srv.request.throttle = 0.5;
-      bool success = clientRotateInPlace.call(srv);
+      executeHomeArm();
+      ros::Duration(3).sleep();          
     }
-    else if(isRoverInView && !isRoverInRange)
+    break;
+  case DIG_MODE:
     {
-      ROS_INFO("Coming Closer.");
-      driving_tools::MoveForward srv;
-      srv.request.throttle = 0.5;
-      bool success = clientMoveForward.call(srv);
+      executeDig();
+      ros::Duration(3).sleep();
     }
-    else if(isRoverInView && isRoverInRange)
+    break;
+  case SCOOP_MODE:
     {
-      ROS_INFO("Stopping.");
-      isAligned = true;
-      enableAlign = false;
-      driving_tools::Stop srv;
-      srv.request.enableStop = true;
-      bool success = clientStop.call(srv);
+      getForwardKinematics();
+      executeScoop();
+      ros::Duration(3).sleep();
     }
-    else
+    break;
+  case EXTEND_MODE:
     {
-      ROS_INFO("Something in front of me, but not the hauler.");
-      driving_tools::Stop srv;
-      srv.request.enableStop = true;
-      bool success = clientStop.call(srv);
-    }     
+      executeExtendArm();
+      ros::Duration(3).sleep();
+    }
+    break;
+  case DROP_MODE:
+    {
+      executeDrop();
+      ros::Duration(3).sleep();
+    }
+    break;
   }
 }
 
-void Manipulation::callExtendArm()
+
+void Manipulation::getForwardKinematics()
 {
-  isArmHome = false;
-  move_excavator::ExtendArm srv;
-  srv.request.heading = 0;
-  srv.request.timeLimit = 100;
-  bool success = clientExtendArm.call(srv);
+  move_excavator::ExcavatorFK srv;
+  motion_control::JointGroup q;
+  q.q1 = q1_pos_;
+  q.q2 = q2_pos_;
+  q.q3 = q3_pos_;
+  q.q4 = q4_pos_;
+
+  srv.request.joints = q;
+  bool success = clientFK.call(srv);
+  eePose = srv.response.eePose;
+
+  ROS_INFO("Got the EE position using FK.");
+  ROS_INFO_STREAM(eePose);
+
+
+  double q2 = eePose.pose.orientation.x;
+  double q3 = eePose.pose.orientation.y;
+  double q4 = eePose.pose.orientation.z;
+  double q1 = eePose.pose.orientation.w;
+
+  double r, p, y;
+
+  tf2::Quaternion quat(q2, q3, q4, q1); //or_x,or_y,or_z, and or_w are orientation message from nav_msg        
+  tf2::Matrix3x3 m(quat); // q is your quaternion message, dont take just q, but normalize it with q.normalize()     
+  m.getRPY(r, p, y); //get your roll pitch yaw from the quaternion message.   
+
+  ROS_INFO_STREAM("Roll " << r << " Pitch " << p << " Yaw " << y);
+
   ros::Duration(10).sleep();
 }
 
-void Manipulation::callDropVolatile()
+void Manipulation::updateLocalization()
 {
-  isArmHome = false;
+  nav_msgs::Odometry msg;
+
+  msg.header.stamp = ros::Time::now();
+  msg.header.frame_id = "odom";
+  msg.pose.pose.position.x = x_goal_ - eePose.pose.position.x;
+  msg.pose.pose.position.y = y_goal_ - eePose.pose.position.y;
+  msg.pose.pose.position.z = z_goal_ - eePose.pose.position.z;
+  msg.pose.pose.orientation.x = 0.0; 
+  msg.pose.pose.orientation.y = 0.0;
+  msg.pose.pose.orientation.z = 0.0;
+  msg.pose.pose.orientation.w = 0.0;
+
+  pubOdometryVolatile.publish(msg);
+  ROS_INFO("An update in localization is available.");
+}
+
+void Manipulation::executeHomeArm()
+{
+  move_excavator::HomeArm srv;
+  srv.request.heading = 0;
+  srv.request.timeLimit = 100;
+  bool success = clientHomeArm.call(srv);
+}
+
+void Manipulation::executeDig()
+{
+  move_excavator::DigVolatile srv;
+  srv.request.heading = 0;
+  srv.request.timeLimit = 100;
+  bool success = clientDigVolatile.call(srv);
+}
+
+void Manipulation::executeScoop()
+{
+  move_excavator::Scoop srv;
+  srv.request.heading = 0;
+  srv.request.timeLimit = 100;
+  bool success = clientScoop.call(srv);
+}
+
+void Manipulation::executeExtendArm()
+{
   move_excavator::ExtendArm srv;
   srv.request.heading = 0;
   srv.request.timeLimit = 100;
   bool success = clientExtendArm.call(srv);
-  ros::Duration(10).sleep();
-  isBucketFull = false;
+}
+
+void Manipulation::executeDrop()
+{
+  move_excavator::DropVolatile srv;
+  srv.request.heading = 0;
+  srv.request.timeLimit = 100;
+  bool success = clientDropVolatile.call(srv);
 }
 
 /*!
@@ -182,8 +255,56 @@ int main(int argc, char **argv)
     ros::Rate rate(50);
     while(ros::ok()) 
     {
-        ros::spinOnce();
-        rate.sleep();
+      if (manipulation.isManipulationStep_)
+      {
+        switch (manipulation.mode)
+        {
+        case HOME_MODE:
+          {
+            manipulation.executeHomeArm();
+            ros::Duration(3).sleep();
+            if(~manipulation.isBucketFull_)
+            {
+              manipulation.mode = DIG_MODE;
+            }
+            else
+            {
+              manipulation.mode = EXTEND_MODE;
+            }              
+          }
+          break;
+        case DIG_MODE:
+          {
+            manipulation.executeDig();
+            ros::Duration(3).sleep();
+            manipulation.mode = SCOOP_MODE;
+          }
+          break;
+        case SCOOP_MODE:
+          {
+            manipulation.executeScoop();
+            ros::Duration(3).sleep();
+            manipulation.mode = HOME_MODE;
+          }
+          break;
+        case EXTEND_MODE:
+          {
+            manipulation.executeExtendArm();
+            ros::Duration(3).sleep();
+            manipulation.mode = DROP_MODE;
+          }
+          break;
+        case DROP_MODE:
+          {
+            manipulation.executeDrop();
+            ros::Duration(3).sleep();
+            manipulation.mode = HOME_MODE;
+          }
+          break;
+        }
+      }
+      ros::spinOnce();
+      rate.sleep();
     }
     return 0;
 }

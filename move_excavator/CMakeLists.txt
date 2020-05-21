@@ -12,10 +12,12 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   geometry_msgs
+  nav_msgs
   message_generation
   motion_control
   cv_bridge
   message_filters
+  tf2_ros
 )
 
 ## System dependencies are found with CMake's conventions
@@ -66,6 +68,7 @@ add_service_files(
   DropVolatile.srv
   DigVolatile.srv
   Scoop.srv
+  ExcavatorFK.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -80,6 +83,8 @@ generate_messages(
   DEPENDENCIES
   std_msgs
   geometry_msgs
+  nav_msgs
+  motion_control
 )
 
 ################################################
@@ -114,7 +119,7 @@ generate_messages(
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES motion_control
-  CATKIN_DEPENDS message_runtime std_msgs geometry_msgs motion_control cv_bridge message_filters 
+  CATKIN_DEPENDS message_runtime std_msgs geometry_msgs nav_msgs motion_control cv_bridge message_filters tf2_ros
 #  DEPENDS system_lib
 )
 
