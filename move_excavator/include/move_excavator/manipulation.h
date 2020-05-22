@@ -64,6 +64,7 @@
 #define SCOOP_MODE 2
 #define EXTEND_MODE 3
 #define DROP_MODE 4
+#define START 9
 
 
 class Manipulation
@@ -79,8 +80,8 @@ public:
 
   // Callback function for subscriber.
   void goalCallback(const geometry_msgs::PoseStamped::ConstPtr &msg);
-  void alignCallback(const move_excavator::MultiAgentState::ConstPtr &msg);
   void debugCallback(const std_msgs::Int64::ConstPtr &msg);
+  void haulerOdomCallback(const nav_msgs::Odometry::ConstPtr &msg);
 
   // State-machine mode
   int mode = HOME_MODE;
@@ -88,7 +89,6 @@ public:
   // Flags Init
   bool isManipulationStep_ = false;
   bool isBucketFull_ = false;
-  bool isHaulerInView_ = false;
   bool isHaulerInRange_ = false;
 
   void executeHomeArm();
@@ -103,14 +103,14 @@ private:
 
   // Publisher
   ros::Publisher pubFinished;
-  ros::Publisher pubOdometryVolatile;
+  ros::Publisher pubOdomFromVolatile;
 
   // Subscriber
   ros::Subscriber subOdometry;
+  ros::Subscriber subHaulerOdom;
   ros::Subscriber subJointStates;
-  ros::Subscriber subGoalVolatile;
   ros::Subscriber subBucketInfo;
-  ros::Subscriber subMultiAgent;
+  ros::Subscriber subGoalVolatile;
   ros::Subscriber subDebug;
 
   // Clients
@@ -122,14 +122,10 @@ private:
 
   ros::ServiceClient clientFK;
 
-  ros::ServiceClient clientRotateInPlace;
-  ros::ServiceClient clientMoveForward;
-  ros::ServiceClient clientStop;
-
   // End-effector Pose Init
   geometry_msgs::PoseStamped eePose; 
 
-  // Rover Pose Init
+  // Excavator Pose Init
   double posx_ = 0.0;
   double posy_ = 0.0;
   double posz_ = 0.0;
@@ -137,12 +133,22 @@ private:
   double orienty_ = 0.0;
   double orientz_ = 0.0;
   double orientw_ = 0.0;
-  /* double linvelx = 0.0;
-  double linvely = 0.0;
-  double linvelz = 0.0;
-  double angvelx = 0.0;
-  double angvely = 0.0;
-  double angvelz = 0.0; */
+
+  double roll_ = 0.0;
+  double pitch_ = 0.0;
+  double yaw_ = 0.0;
+
+
+  // Hauler Pose Init
+  double posx_hauler_ = 0.0;
+  double posy_hauler_ = 0.0;
+  double posz_hauler_ = 0.0;
+  double orientx_hauler_ = 0.0;
+  double orienty_hauler_ = 0.0;
+  double orientz_hauler_ = 0.0;
+  double orientw_hauler_ = 0.0;
+
+  double relative_heading_;
 
   // Joint Positions Init
   double q1_pos_ = 0.0;
@@ -152,15 +158,18 @@ private:
 
   // Bucket Info Init
   double mass_in_bucket_ = 0.0;
-  // double mass_collected = 0.0;
+  double mass_collected_ = 0.0;
 
   // Goal Volatile Pos Init
   double x_goal_ = 0.0;
   double y_goal_ = 0.0;
   double z_goal_ = 0.0;
-  double phi_goal_ = 0.0;
+  double orientx_goal_ = 0.0;
+  double orienty_goal_ = 0.0;
+  double orientz_goal_ = 0.0;
+  double orientw_goal_ = 0.0;
+  
   Eigen::VectorXd pos_goal_ = Eigen::VectorXd::Zero(3);
-
 
   // bool isArmHome = false;
   // bool enableAlign = false;

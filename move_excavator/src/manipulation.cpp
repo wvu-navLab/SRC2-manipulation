@@ -15,14 +15,14 @@ Manipulation::Manipulation(ros::NodeHandle & nh)
 {
   // Publishers
   pubFinished = nh_.advertise<move_excavator::ExcavationStatus>("/excavation_status", 1000);
-  pubOdometryVolatile = nh_.advertise<nav_msgs::Odometry>("/odom_volatile", 1000);
+  pubOdomFromVolatile = nh_.advertise<nav_msgs::Odometry>("odom_from_volatile", 1000);
 
   // Subscribers
+  subOdometry = nh_.subscribe("odometry/truth", 1000, &Manipulation::odometryCallback, this);
+  subHaulerOdom =  nh_.subscribe("/hauler_1/odometry/truth", 1000, &Manipulation::haulerOdomCallback, this);
   subJointStates = nh_.subscribe("joint_states", 1000, &Manipulation::jointStateCallback, this);
-  subOdometry = nh_.subscribe("odom_truth", 1000, &Manipulation::odometryCallback, this);
   subBucketInfo = nh_.subscribe("bucket_info", 1000, &Manipulation::bucketCallback, this);
   subGoalVolatile = nh_.subscribe("/volatile_pos", 1000, &Manipulation::goalCallback, this);
-  subMultiAgent = nh_.subscribe("/multiAgent", 1000, &Manipulation::alignCallback, this);
   subDebug =  nh_.subscribe("/debug", 1000, &Manipulation::debugCallback, this);
 
   // Service Clients
@@ -33,10 +33,6 @@ Manipulation::Manipulation(ros::NodeHandle & nh)
   clientScoop = nh_.serviceClient<move_excavator::Scoop>("scoop");
   clientExtendArm = nh_.serviceClient<move_excavator::ExtendArm>("extend_arm");
   clientDropVolatile = nh_.serviceClient<move_excavator::DropVolatile>("drop_volatile");
-  
-  clientRotateInPlace = nh_.serviceClient<driving_tools::RotateInPlace>("rotate_in_place");
-  clientMoveForward = nh_.serviceClient<driving_tools::MoveForward>("move_forward");
-  clientStop = nh_.serviceClient<driving_tools::Stop>("stop");
 }
 
 void Manipulation::jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg)
@@ -60,28 +56,61 @@ void Manipulation::odometryCallback(const nav_msgs::Odometry::ConstPtr &msg)
   orienty_ = msg->pose.pose.orientation.y;
   orientz_ = msg->pose.pose.orientation.z;
   orientw_ = msg->pose.pose.orientation.w;
-  /* linvelx = msg->twist.linear.x;
-  linvely = msg->twist.linear.y;
-  linvelz = msg->twist.linear.z;
-  angvelx = msg->twist.angular.x;
-  angvely = msg->twist.angular.y;
-  angvelz = msg->twist.angular.z;
-  */
-  ROS_INFO("Odometry updated.");
+
+  tf2::Quaternion quat(orientx_, orienty_, orientz_, orientw_); //or_x,or_y,or_z, and or_w are orientation message from nav_msg        
+  tf2::Matrix3x3 m(quat); // q is your quaternion message, dont take just q, but normalize it with q.normalize()     
+  m.getRPY(roll_, pitch_, yaw_); //get your roll pitch yaw from the quaternion message. 
+
+  ROS_INFO_STREAM("Excavator odometry updated. Pose:" << msg->pose.pose);
+}
+
+void Manipulation::haulerOdomCallback(const nav_msgs::Odometry::ConstPtr &msg)
+{
+  // Find current angles and position
+  posx_hauler_ = msg->pose.pose.position.x;
+  posy_hauler_ = msg->pose.pose.position.y;
+  posz_hauler_ = msg->pose.pose.position.z;
+  orientx_hauler_ = msg->pose.pose.orientation.x;
+  orienty_hauler_ = msg->pose.pose.orientation.y;
+  orientz_hauler_ = msg->pose.pose.orientation.z;
+  orientw_hauler_ = msg->pose.pose.orientation.w;
+
+  double dx = (posx_hauler_ - posx_);
+  double dy = (posy_hauler_ - posy_);
+  double dz = (posz_hauler_ - posz_);
+  double relative_range = sqrt(dx*dx + dy*dy + dz*dz);
+  if (relative_range < 1.5)
+  {
+    isHaulerInRange_ = true;
+  }
+  else
+  {
+    isHaulerInRange_ = false;
+  }
+  
+  relative_heading_ = atan2(dy,dx) - yaw_;
+  
+  ROS_INFO_STREAM("Hauler odometry updated. Pose:" << msg->pose.pose);
+  ROS_INFO_STREAM("Is Hauler in range:" << isHaulerInRange_);
+  ROS_INFO_STREAM("Relative heading:" << yaw_);
 }
 
 void Manipulation::bucketCallback(const srcp2_msgs::ExcavatorMsg::ConstPtr &msg)
 {
   mass_in_bucket_ = msg->mass_in_bucket;
+
   if (mass_in_bucket_ != 0)
   {
+    // if (~isBucketFull_)
+    // {
+    //   mass_collected_ = mass_in_bucket_ + mass_collected_;
+    // }
     isBucketFull_ = true;
-    ROS_INFO("A Pokémon is on the hook!");
+    ROS_INFO_STREAM("A Pokemon is on the hook! Mass: " << mass_in_bucket_);
   }
   else
   {
     isBucketFull_ = false;
-    // ROS_INFO("Nothing on the bucket.");
   }
 }
 
@@ -90,20 +119,14 @@ void Manipulation::goalCallback(const geometry_msgs::PoseStamped::ConstPtr &msg)
   x_goal_ = msg->pose.position.x;
   y_goal_ = msg->pose.position.y;
   z_goal_ = msg->pose.position.z;
-  /* orientx_goal = msg->pose.orientation.x;
-  orienty_goal = msg->pose.orientation.y;
-  orientz_goal = msg->pose.orientation.z;
-  orientw_goal = msg->pose.orientation.w;
- */
+  orientx_goal_ = msg->pose.orientation.x;
+  orienty_goal_ = msg->pose.orientation.y;
+  orientz_goal_ = msg->pose.orientation.z;
+  orientw_goal_ = msg->pose.orientation.w;
+
   pos_goal_ << x_goal_, y_goal_, z_goal_;
 
-  ROS_INFO("Goal updated.");
-}
-
-void Manipulation::alignCallback(const move_excavator::MultiAgentState::ConstPtr &msg)
-{
-  isHaulerInView_ = msg->isRoverInView;
-  isHaulerInRange_ = msg->isRoverInRange;
+  ROS_INFO_STREAM("Goal volatile updated. Pose:" << msg->pose);
 }
 
 void Manipulation::debugCallback(const std_msgs::Int64::ConstPtr &msg)
@@ -141,6 +164,13 @@ void Manipulation::debugCallback(const std_msgs::Int64::ConstPtr &msg)
       ros::Duration(3).sleep();
     }
     break;
+  case START:
+    {
+      isManipulationStep_ = true;
+    }
+    break;
+
+    
   }
 }
 
@@ -192,7 +222,7 @@ void Manipulation::updateLocalization()
   msg.pose.pose.orientation.z = 0.0;
   msg.pose.pose.orientation.w = 0.0;
 
-  pubOdometryVolatile.publish(msg);
+  pubOdomFromVolatile.publish(msg);
   ROS_INFO("An update in localization is available.");
 }
 
@@ -223,7 +253,7 @@ void Manipulation::executeScoop()
 void Manipulation::executeExtendArm()
 {
   move_excavator::ExtendArm srv;
-  srv.request.heading = 0;
+  srv.request.heading = relative_heading_;
   srv.request.timeLimit = 100;
   bool success = clientExtendArm.call(srv);
 }
@@ -231,7 +261,7 @@ void Manipulation::executeExtendArm()
 void Manipulation::executeDrop()
 {
   move_excavator::DropVolatile srv;
-  srv.request.heading = 0;
+  srv.request.heading = relative_heading_;
   srv.request.timeLimit = 100;
   bool success = clientDropVolatile.call(srv);
 }
@@ -262,21 +292,23 @@ int main(int argc, char **argv)
         case HOME_MODE:
           {
             manipulation.executeHomeArm();
-            ros::Duration(3).sleep();
-            if(~manipulation.isBucketFull_)
+            ros::Duration(10).sleep();
+            if(manipulation.isBucketFull_)
             {
-              manipulation.mode = DIG_MODE;
+              manipulation.mode = EXTEND_MODE;
+              ROS_INFO_STREAM("Is bucket full: " << manipulation.isBucketFull_);
             }
             else
             {
-              manipulation.mode = EXTEND_MODE;
-            }              
+              manipulation.mode = DIG_MODE;
+              ROS_INFO_STREAM("Is bucket full: " << manipulation.isBucketFull_);
+            }
           }
           break;
         case DIG_MODE:
           {
             manipulation.executeDig();
-            ros::Duration(3).sleep();
+            ros::Duration(5).sleep();
             manipulation.mode = SCOOP_MODE;
           }
           break;
@@ -290,8 +322,11 @@ int main(int argc, char **argv)
         case EXTEND_MODE:
           {
             manipulation.executeExtendArm();
-            ros::Duration(3).sleep();
-            manipulation.mode = DROP_MODE;
+            ros::Duration(10).sleep();
+            if(~manipulation.isHaulerInRange_)
+            {
+              manipulation.mode = DROP_MODE;
+            }
           }
           break;
         case DROP_MODE:
@@ -303,6 +338,7 @@ int main(int argc, char **argv)
           break;
         }
       }
+      
       ros::spinOnce();
       rate.sleep();
     }
