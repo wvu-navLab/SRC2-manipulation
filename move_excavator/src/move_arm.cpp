@@ -14,7 +14,7 @@ MoveArm::MoveArm(ros::NodeHandle & nh)
 : nh_(nh)
 {    
   // Node publishes individual joint positions
-  pubJointAngles = nh_.advertise<motion_control::JointGroup>("jointAngles", 1000);
+  pubJointAngles = nh_.advertise<motion_control::JointGroup>("arm_joint_angles", 1000);
 
   // Service Servers
   serverHomeArm = nh_.advertiseService("home_arm", &MoveArm::HomeArm, this);

@@ -23,7 +23,7 @@ Manipulation::Manipulation(ros::NodeHandle & nh)
   subJointStates = nh_.subscribe("joint_states", 1000, &Manipulation::jointStateCallback, this);
   subBucketInfo = nh_.subscribe("bucket_info", 1000, &Manipulation::bucketCallback, this);
   subGoalVolatile = nh_.subscribe("/volatile_pos", 1000, &Manipulation::goalCallback, this);
-  subManipulationState =  nh_.subscribe("/manipulation_state", 1000, &Manipulation::manipulationStateCallback, this);
+  subManipulationState =  nh_.subscribe("manipulation_state", 1000, &Manipulation::manipulationStateCallback, this);
 
   // Service Clients
   clientFK = nh_.serviceClient<move_excavator::ExcavatorFK>("excavator_fk");
@@ -42,8 +42,8 @@ void Manipulation::jointStateCallback(const sensor_msgs::JointState::ConstPtr &m
   q2_pos_ = msg->position[0];
   q3_pos_ = msg->position[8];
   q4_pos_ = msg->position[7];
-  ROS_INFO("Joint states updated.");
-  ROS_INFO_STREAM("Values "<< q1_pos_<<" "<< q2_pos_<< " "<< q3_pos_<< " "<< q4_pos_);
+  // ROS_INFO("Joint states updated.");
+  // ROS_INFO_STREAM("Values "<< q1_pos_<<" "<< q2_pos_<< " "<< q3_pos_<< " "<< q4_pos_);
 }
 
 void Manipulation::odometryCallback(const nav_msgs::Odometry::ConstPtr &msg)
@@ -61,7 +61,7 @@ void Manipulation::odometryCallback(const nav_msgs::Odometry::ConstPtr &msg)
   tf2::Matrix3x3 m(quat); // q is your quaternion message, dont take just q, but normalize it with q.normalize()     
   m.getRPY(roll_, pitch_, yaw_); //get your roll pitch yaw from the quaternion message. 
 
-  ROS_INFO_STREAM("Excavator odometry updated. Pose:" << msg->pose.pose);
+  // ROS_INFO_STREAM("Excavator odometry updated. Pose:" << msg->pose.pose);
 }
 
 void Manipulation::haulerOdomCallback(const nav_msgs::Odometry::ConstPtr &msg)
@@ -79,7 +79,7 @@ void Manipulation::haulerOdomCallback(const nav_msgs::Odometry::ConstPtr &msg)
   double dy = (posy_hauler_ - posy_);
   double dz = (posz_hauler_ - posz_);
   double relative_range = sqrt(dx*dx + dy*dy + dz*dz);
-  if (relative_range < 1.5)
+  if (relative_range < 2.5)
   {
     isHaulerInRange_ = true;
   }
@@ -90,9 +90,10 @@ void Manipulation::haulerOdomCallback(const nav_msgs::Odometry::ConstPtr &msg)
   
   relative_heading_ = atan2(dy,dx) - yaw_;
   
-  ROS_INFO_STREAM("Hauler odometry updated. Pose:" << msg->pose.pose);
-  ROS_INFO_STREAM("Is Hauler in range:" << isHaulerInRange_);
-  ROS_INFO_STREAM("Relative heading:" << yaw_);
+  // ROS_INFO_STREAM("Hauler odometry updated. Pose:" << msg->pose.pose);
+  // ROS_INFO_STREAM("Range:" << relative_range);
+  // ROS_INFO_STREAM("Is Hauler in range:" << isHaulerInRange_);
+  // ROS_INFO_STREAM("Relative heading:" << yaw_);
 }
 
 void Manipulation::bucketCallback(const srcp2_msgs::ExcavatorMsg::ConstPtr &msg)
@@ -104,9 +105,10 @@ void Manipulation::bucketCallback(const srcp2_msgs::ExcavatorMsg::ConstPtr &msg)
     if (!isBucketFull_)
     {
       mass_collected_ = mass_in_bucket_ + mass_collected_;
+    ROS_INFO_STREAM("Total mass collected: " << mass_collected_);
     }
     isBucketFull_ = true;
-    ROS_INFO_STREAM("A Pokemon is on the hook! Mass: " << mass_in_bucket_);
+    // ROS_INFO_STREAM("A Pokemon is on the hook! Mass: " << mass_in_bucket_);
   }
   else
   {
@@ -126,7 +128,7 @@ void Manipulation::goalCallback(const geometry_msgs::PoseStamped::ConstPtr &msg)
 
   pos_goal_ << x_goal_, y_goal_, z_goal_;
 
-  ROS_INFO_STREAM("Goal volatile updated. Pose:" << msg->pose);
+  // ROS_INFO_STREAM("Goal volatile updated. Pose:" << msg->pose);
 }
 
 void Manipulation::manipulationStateCallback(const std_msgs::Int64::ConstPtr &msg)
@@ -227,7 +229,7 @@ void Manipulation::updateLocalization()
   msg.pose.pose.orientation.w = 0.0;
 
   pubOdomFromVolatile.publish(msg);
-  ROS_INFO("An update in localization is available.");
+  // ROS_INFO("An update in localization is available.");
 }
 
 void Manipulation::executeHomeArm()
@@ -276,7 +278,7 @@ void Manipulation::outputManipulationStatus()
   msg.isFinished = true;
   msg.collectedMass = mass_collected_;
   pubExcavationStatus.publish(msg);
-  ROS_INFO("An update in localization is available.");
+  ROS_INFO("Manipulation has finished.");
 }
 
 /*!
@@ -309,12 +311,12 @@ int main(int argc, char **argv)
             if(manipulation.isBucketFull_)
             {
               manipulation.mode = EXTEND_MODE;
-              ROS_INFO_STREAM("Is bucket full: " << manipulation.isBucketFull_);
+              // ROS_INFO_STREAM("Is bucket full: " << manipulation.isBucketFull_);
             }
             else
             {
               manipulation.mode = DIG_MODE;
-              ROS_INFO_STREAM("Is bucket full: " << manipulation.isBucketFull_);
+              // ROS_INFO_STREAM("Is bucket full: " << manipulation.isBucketFull_);
             }
           }
           break;
