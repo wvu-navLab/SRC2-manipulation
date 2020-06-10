@@ -40,11 +40,7 @@ source devel/setup.bash
 ```
 
 Then choose one of the following:
-- Keyboard teleop:
-
-```
-rosrun move_excavator teleop_joints_key
-```
+- Keyboard teleop (https://github.com/wvu-navLab/SRC2-driving/tree/master/teleop_modes).
 
 - Publishing the joint angles.
 

@@ -14,7 +14,7 @@ Manipulation::Manipulation(ros::NodeHandle & nh)
 : nh_(nh)
 {
   // Publishers
-  pubFinished = nh_.advertise<move_excavator::ExcavationStatus>("/excavation_status", 1000);
+  pubExcavationStatus = nh_.advertise<move_excavator::ExcavationStatus>("/excavation_status", 1000);
   pubOdomFromVolatile = nh_.advertise<nav_msgs::Odometry>("odom_from_volatile", 1000);
 
   // Subscribers
@@ -23,7 +23,7 @@ Manipulation::Manipulation(ros::NodeHandle & nh)
   subJointStates = nh_.subscribe("joint_states", 1000, &Manipulation::jointStateCallback, this);
   subBucketInfo = nh_.subscribe("bucket_info", 1000, &Manipulation::bucketCallback, this);
   subGoalVolatile = nh_.subscribe("/volatile_pos", 1000, &Manipulation::goalCallback, this);
-  subDebug =  nh_.subscribe("/debug", 1000, &Manipulation::debugCallback, this);
+  subManipulationState =  nh_.subscribe("/manipulation_state", 1000, &Manipulation::manipulationStateCallback, this);
 
   // Service Clients
   clientFK = nh_.serviceClient<move_excavator::ExcavatorFK>("excavator_fk");
@@ -101,10 +101,10 @@ void Manipulation::bucketCallback(const srcp2_msgs::ExcavatorMsg::ConstPtr &msg)
 
   if (mass_in_bucket_ != 0)
   {
-    // if (~isBucketFull_)
-    // {
-    //   mass_collected_ = mass_in_bucket_ + mass_collected_;
-    // }
+    if (!isBucketFull_)
+    {
+      mass_collected_ = mass_in_bucket_ + mass_collected_;
+    }
     isBucketFull_ = true;
     ROS_INFO_STREAM("A Pokemon is on the hook! Mass: " << mass_in_bucket_);
   }
@@ -129,10 +129,16 @@ void Manipulation::goalCallback(const geometry_msgs::PoseStamped::ConstPtr &msg)
   ROS_INFO_STREAM("Goal volatile updated. Pose:" << msg->pose);
 }
 
-void Manipulation::debugCallback(const std_msgs::Int64::ConstPtr &msg)
+void Manipulation::manipulationStateCallback(const std_msgs::Int64::ConstPtr &msg)
 {
   switch (msg->data)
   {
+  case STOP:
+    {
+      executeHomeArm();
+      isManipulationEnabled_ = false;
+    }
+    break;
   case HOME_MODE:
     {
       executeHomeArm();
@@ -166,11 +172,9 @@ void Manipulation::debugCallback(const std_msgs::Int64::ConstPtr &msg)
     break;
   case START:
     {
-      isManipulationStep_ = true;
+      isManipulationEnabled_ = true;
     }
     break;
-
-    
   }
 }
 
@@ -266,6 +270,15 @@ void Manipulation::executeDrop()
   bool success = clientDropVolatile.call(srv);
 }
 
+void Manipulation::outputManipulationStatus()
+{
+  move_excavator::ExcavationStatus msg;
+  msg.isFinished = true;
+  msg.collectedMass = mass_collected_;
+  pubExcavationStatus.publish(msg);
+  ROS_INFO("An update in localization is available.");
+}
+
 /*!
  * \brief Creates and runs the Manipulation node.
  *
@@ -285,7 +298,7 @@ int main(int argc, char **argv)
     ros::Rate rate(50);
     while(ros::ok()) 
     {
-      if (manipulation.isManipulationStep_)
+      if (manipulation.isManipulationEnabled_)
       {
         switch (manipulation.mode)
         {
@@ -323,7 +336,7 @@ int main(int argc, char **argv)
           {
             manipulation.executeExtendArm();
             ros::Duration(10).sleep();
-            if(~manipulation.isHaulerInRange_)
+            if(manipulation.isHaulerInRange_)
             {
               manipulation.mode = DROP_MODE;
             }
@@ -333,6 +346,12 @@ int main(int argc, char **argv)
           {
             manipulation.executeDrop();
             ros::Duration(3).sleep();
+            if(abs(100-manipulation.mass_collected_)<manipulation.remaining_mass_thres_)
+            {
+              manipulation.isManipulationEnabled_ = false;
+              manipulation.executeHomeArm();
+              manipulation.outputManipulationStatus();
+            }
             manipulation.mode = HOME_MODE;
           }
           break;

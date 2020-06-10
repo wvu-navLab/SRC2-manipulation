@@ -59,6 +59,7 @@
 
 
 
+#define STOP -1
 #define HOME_MODE 0
 #define DIG_MODE 1
 #define SCOOP_MODE 2
@@ -80,29 +81,34 @@ public:
 
   // Callback function for subscriber.
   void goalCallback(const geometry_msgs::PoseStamped::ConstPtr &msg);
-  void debugCallback(const std_msgs::Int64::ConstPtr &msg);
+  void manipulationStateCallback(const std_msgs::Int64::ConstPtr &msg);
   void haulerOdomCallback(const nav_msgs::Odometry::ConstPtr &msg);
 
   // State-machine mode
   int mode = HOME_MODE;
 
   // Flags Init
-  bool isManipulationStep_ = false;
+  bool isManipulationEnabled_ = false;
   bool isBucketFull_ = false;
   bool isHaulerInRange_ = false;
+
+  // Bucket Info Init 
+  double mass_collected_ = 0.0;
+  double remaining_mass_thres_ = 0.1;
 
   void executeHomeArm();
   void executeDig();
   void executeScoop();
   void executeExtendArm();
   void executeDrop();
+  void outputManipulationStatus();
 
 private:
   // Node Handle
   ros::NodeHandle & nh_;
 
   // Publisher
-  ros::Publisher pubFinished;
+  ros::Publisher pubExcavationStatus;
   ros::Publisher pubOdomFromVolatile;
 
   // Subscriber
@@ -111,7 +117,7 @@ private:
   ros::Subscriber subJointStates;
   ros::Subscriber subBucketInfo;
   ros::Subscriber subGoalVolatile;
-  ros::Subscriber subDebug;
+  ros::Subscriber subManipulationState;
 
   // Clients
   ros::ServiceClient clientHomeArm;
@@ -158,7 +164,6 @@ private:
 
   // Bucket Info Init
   double mass_in_bucket_ = 0.0;
-  double mass_collected_ = 0.0;
 
   // Goal Volatile Pos Init
   double x_goal_ = 0.0;
