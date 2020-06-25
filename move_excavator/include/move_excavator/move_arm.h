@@ -4,7 +4,7 @@
  *
  * Move Arm creates a ROS node that ...
  *
- * \author Bernardo Martinez Rocamora Junior, WVU - bm00002@wvu.mix.edu
+ * \author Bernardo Martinez Rocamora Junior, WVU - bm00002@mix.wvu.edu
  * * \date April 28, 2020
  */
 
