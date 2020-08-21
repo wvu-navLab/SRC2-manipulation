@@ -14,16 +14,16 @@ Manipulation::Manipulation(ros::NodeHandle & nh)
 : nh_(nh)
 {
   // Publishers
-  pubExcavationStatus = nh_.advertise<move_excavator::ExcavationStatus>("/excavation_status", 1000);
-  pubOdomFromVolatile = nh_.advertise<nav_msgs::Odometry>("odom_from_volatile", 1000);
+  pubExcavationStatus = nh_.advertise<move_excavator::ExcavationStatus>("manipulation/feedback", 1000);
+  pubOdomFromVolatile = nh_.advertise<nav_msgs::Odometry>("localization/pose_update/volatile", 1000);
 
   // Subscribers
-  subOdometry = nh_.subscribe("odometry/truth", 1000, &Manipulation::odometryCallback, this);
-  subHaulerOdom =  nh_.subscribe("/hauler_1/odometry/truth", 1000, &Manipulation::haulerOdomCallback, this);
+  subOdometry = nh_.subscribe("localization/odometry/sensor_fusion", 1000, &Manipulation::odometryCallback, this);
+  subHaulerOdom =  nh_.subscribe("/hauler_1/localization/odometry/sensor_fusion", 1000, &Manipulation::haulerOdomCallback, this);
   subJointStates = nh_.subscribe("joint_states", 1000, &Manipulation::jointStateCallback, this);
   subBucketInfo = nh_.subscribe("bucket_info", 1000, &Manipulation::bucketCallback, this);
-  subGoalVolatile = nh_.subscribe("/volatile_pos", 1000, &Manipulation::goalCallback, this);
-  subManipulationState =  nh_.subscribe("manipulation_state", 1000, &Manipulation::manipulationStateCallback, this);
+  subGoalVolatile = nh_.subscribe("manipulation/volatile_pos", 1000, &Manipulation::goalCallback, this);
+  subManipulationState =  nh_.subscribe("manipulation/state", 1000, &Manipulation::manipulationStateCallback, this);
 
   // Service Clients
   clientFK = nh_.serviceClient<move_excavator::ExcavatorFK>("excavator_fk");
@@ -38,7 +38,7 @@ Manipulation::Manipulation(ros::NodeHandle & nh)
 void Manipulation::jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg)
 {
   // Find current angles and position
-  q1_pos_ = msg->position[15];
+  q1_pos_ = msg->position[15];  // TODO: Get ids from the message names
   q2_pos_ = msg->position[0];
   q3_pos_ = msg->position[8];
   q4_pos_ = msg->position[7];
@@ -57,9 +57,9 @@ void Manipulation::odometryCallback(const nav_msgs::Odometry::ConstPtr &msg)
   orientz_ = msg->pose.pose.orientation.z;
   orientw_ = msg->pose.pose.orientation.w;
 
-  tf2::Quaternion quat(orientx_, orienty_, orientz_, orientw_); //or_x,or_y,or_z, and or_w are orientation message from nav_msg        
-  tf2::Matrix3x3 m(quat); // q is your quaternion message, dont take just q, but normalize it with q.normalize()     
-  m.getRPY(roll_, pitch_, yaw_); //get your roll pitch yaw from the quaternion message. 
+  tf2::Quaternion quat(orientx_, orienty_, orientz_, orientw_); //or_x,or_y,or_z, and or_w are orientation message from nav_msg
+  tf2::Matrix3x3 m(quat); // q is your quaternion message, dont take just q, but normalize it with q.normalize()
+  m.getRPY(roll_, pitch_, yaw_); //get your roll pitch yaw from the quaternion message.
 
   // ROS_INFO_STREAM("Excavator odometry updated. Pose:" << msg->pose.pose);
 }
@@ -87,9 +87,9 @@ void Manipulation::haulerOdomCallback(const nav_msgs::Odometry::ConstPtr &msg)
   {
     isHaulerInRange_ = false;
   }
-  
+
   relative_heading_ = atan2(dy,dx) - yaw_;
-  
+
   // ROS_INFO_STREAM("Hauler odometry updated. Pose:" << msg->pose.pose);
   // ROS_INFO_STREAM("Range:" << relative_range);
   // ROS_INFO_STREAM("Is Hauler in range:" << isHaulerInRange_);
@@ -144,7 +144,7 @@ void Manipulation::manipulationStateCallback(const std_msgs::Int64::ConstPtr &ms
   case HOME_MODE:
     {
       executeHomeArm();
-      ros::Duration(3).sleep();          
+      ros::Duration(3).sleep();
     }
     break;
   case DIG_MODE:
@@ -205,9 +205,9 @@ void Manipulation::getForwardKinematics()
 
   double r, p, y;
 
-  tf2::Quaternion quat(q2, q3, q4, q1); //or_x,or_y,or_z, and or_w are orientation message from nav_msg        
-  tf2::Matrix3x3 m(quat); // q is your quaternion message, dont take just q, but normalize it with q.normalize()     
-  m.getRPY(r, p, y); //get your roll pitch yaw from the quaternion message.   
+  tf2::Quaternion quat(q2, q3, q4, q1); //or_x,or_y,or_z, and or_w are orientation message from nav_msg
+  tf2::Matrix3x3 m(quat); // q is your quaternion message, dont take just q, but normalize it with q.normalize()
+  m.getRPY(r, p, y); //get your roll pitch yaw from the quaternion message.
 
   ROS_INFO_STREAM("Roll " << r << " Pitch " << p << " Yaw " << y);
 
@@ -223,7 +223,7 @@ void Manipulation::updateLocalization()
   msg.pose.pose.position.x = x_goal_ - eePose.pose.position.x;
   msg.pose.pose.position.y = y_goal_ - eePose.pose.position.y;
   msg.pose.pose.position.z = z_goal_ - eePose.pose.position.z;
-  msg.pose.pose.orientation.x = 0.0; 
+  msg.pose.pose.orientation.x = 0.0;
   msg.pose.pose.orientation.y = 0.0;
   msg.pose.pose.orientation.z = 0.0;
   msg.pose.pose.orientation.w = 0.0;
@@ -298,7 +298,7 @@ int main(int argc, char **argv)
     Manipulation manipulation(nh);
 
     ros::Rate rate(50);
-    while(ros::ok()) 
+    while(ros::ok())
     {
       if (manipulation.isManipulationEnabled_)
       {
@@ -359,7 +359,7 @@ int main(int argc, char **argv)
           break;
         }
       }
-      
+
       ros::spinOnce();
       rate.sleep();
     }
