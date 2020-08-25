@@ -119,7 +119,7 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES motion_control
+  # LIBRARIES motion_control
   CATKIN_DEPENDS message_runtime std_msgs geometry_msgs nav_msgs motion_control cv_bridge message_filters tf2_ros
 #  DEPENDS system_lib
 )
@@ -132,7 +132,7 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-  include  
+  include
   ~/srcp2-competitors/ros_workspace/install/include
   ${catkin_INCLUDE_DIRS}
 )
