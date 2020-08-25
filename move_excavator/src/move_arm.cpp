@@ -12,17 +12,17 @@
 
 MoveArm::MoveArm(ros::NodeHandle & nh)
 : nh_(nh)
-{    
+{
   // Node publishes individual joint positions
-  pubJointAngles = nh_.advertise<motion_control::JointGroup>("arm_joint_angles", 1000);
+  pubJointAngles = nh_.advertise<motion_control::JointGroup>("manipulation/arm_joint_angles", 1000);
 
   // Service Servers
-  serverHomeArm = nh_.advertiseService("home_arm", &MoveArm::HomeArm, this);
-  serverExtendArm = nh_.advertiseService("extend_arm", &MoveArm::ExtendArm, this);
-  serverDropVolatile = nh_.advertiseService("drop_volatile", &MoveArm::DropVolatile, this);
-  serverDigVolatile = nh_.advertiseService("dig_volatile", &MoveArm::DigVolatile, this);
-  serverScoop = nh_.advertiseService("scoop", &MoveArm::Scoop, this);
-  serverFK = nh_.advertiseService("excavator_fk", &MoveArm::ExcavatorFK, this);
+  serverHomeArm = nh_.advertiseService("manipulation/home_arm", &MoveArm::HomeArm, this);
+  serverExtendArm = nh_.advertiseService("manipulation/extend_arm", &MoveArm::ExtendArm, this);
+  serverDropVolatile = nh_.advertiseService("manipulation/drop_volatile", &MoveArm::DropVolatile, this);
+  serverDigVolatile = nh_.advertiseService("manipulation/dig_volatile", &MoveArm::DigVolatile, this);
+  serverScoop = nh_.advertiseService("manipulation/scoop", &MoveArm::Scoop, this);
+  serverFK = nh_.advertiseService("manipulation/excavator_fk", &MoveArm::ExcavatorFK, this);
 
   // Link lengths
   h0 = 0.3556;
@@ -56,7 +56,7 @@ MoveArm::MoveArm(ros::NodeHandle & nh)
   alpha_DH << 0, PI/2, 0, 0, 0;
   d_DH << h0, d1, 0, 0, 0;
   theta_DH << PI, q1_goal, q2_goal+th2_star, q3_goal+th3_star, q4_goal+th4_star;
-} 
+}
 
 /*--------------------------------------------------------------------
  * -------------------- GEOMETRY CALC TOOLS --------------------------
@@ -78,7 +78,7 @@ void MoveArm::limitJoint(double& q_, double max_, double min_)
 
 Eigen::MatrixXd MoveArm::trotx(double alpha)
 {
-  Eigen::MatrixXd T(4,4); 
+  Eigen::MatrixXd T(4,4);
   T <<  1, 0,           0,            0,
         0, cos(alpha),  -sin(alpha),  0,
         0, sin(alpha),  cos(alpha),   0,
@@ -88,7 +88,7 @@ Eigen::MatrixXd MoveArm::trotx(double alpha)
 
 Eigen::MatrixXd MoveArm::trotz(double theta)
 {
-  Eigen::MatrixXd T(4,4); 
+  Eigen::MatrixXd T(4,4);
   T <<  cos(theta), -sin(theta),  0,  0,
         sin(theta), cos(theta),   0,  0,
         0,          0,            1,  0,
@@ -98,7 +98,7 @@ Eigen::MatrixXd MoveArm::trotz(double theta)
 
 Eigen::MatrixXd MoveArm::transl(double x, double y, double z)
 {
-  Eigen::MatrixXd T(4,4); 
+  Eigen::MatrixXd T(4,4);
   T <<  1, 0, 0, x,
         0, 1, 0, y,
         0, 0, 1, z,
@@ -130,7 +130,7 @@ bool MoveArm::ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator
   ROS_ERROR_STREAM("Extending arm.");
   q.q1 = q1_;
   q.q2 = JOINT2_MIN*2/3;
-  q.q3 = JOINT3_MIN;
+  q.q3 = 0; //JOINT3_MIN;
   q.q4 = JOINT4_MAX;
   ROS_ERROR_STREAM("Publishing joint angles:");
   std::cout << q << std::endl;
@@ -187,14 +187,14 @@ bool MoveArm::ExcavatorFK(move_excavator::ExcavatorFK::Request  &req, move_excav
   double q3 = req.joints.q3;
   double q4 = req.joints.q4;
 
-  geometry_msgs::PoseStamped pose;
+  geometry_msgs::Pose pose;
   pose = calculateFK(q1, q2, q3, q4);
 
   res.eePose = pose;
   return true;
 }
 
-geometry_msgs::PoseStamped MoveArm::calculateFK(double q1, double q2, double q3, double q4)
+geometry_msgs::Pose MoveArm::calculateFK(double q1, double q2, double q3, double q4)
 {
   theta_DH << PI, q1, q2 + th2_star, q3 + th3_star, q4 + th4_star;
   int N = theta_DH.size();
@@ -216,28 +216,27 @@ geometry_msgs::PoseStamped MoveArm::calculateFK(double q1, double q2, double q3,
   T0Tn = T0Ti;
   pos_goal = T0Tn.block(0,3,3,1);
 
-  
-  Eigen::Matrix3d rot = T0Tn.block(0,0,3,3); 
-  Eigen::Quaterniond q(rot);
-  
-  geometry_msgs::PoseStamped eePose;
 
-  eePose.header.stamp = ros::Time::now();
-  eePose.pose.position.x = pos_goal[0];
-  eePose.pose.position.y = pos_goal[1];
-  eePose.pose.position.z = pos_goal[2];
-  eePose.pose.orientation.x = q.x();
-  eePose.pose.orientation.y = q.y();
-  eePose.pose.orientation.z = q.z();
-  eePose.pose.orientation.w = q.w();
-  if (eePose.pose.orientation.w < 0) {
-    eePose.pose.orientation.x *= -1;
-    eePose.pose.orientation.y *= -1;
-    eePose.pose.orientation.z *= -1;
-    eePose.pose.orientation.w *= -1;
+  Eigen::Matrix3d rot = T0Tn.block(0,0,3,3);
+  Eigen::Quaterniond q(rot);
+
+  geometry_msgs::Pose eePose;
+
+  eePose.position.x = pos_goal[0];
+  eePose.position.y = pos_goal[1];
+  eePose.position.z = pos_goal[2];
+  eePose.orientation.x = q.x();
+  eePose.orientation.y = q.y();
+  eePose.orientation.z = q.z();
+  eePose.orientation.w = q.w();
+  if (eePose.orientation.w < 0) {
+    eePose.orientation.x *= -1;
+    eePose.orientation.y *= -1;
+    eePose.orientation.z *= -1;
+    eePose.orientation.w *= -1;
   }
 
-  return eePose; 
+  return eePose;
 }
 
 /*!

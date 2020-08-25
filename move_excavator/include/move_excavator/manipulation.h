@@ -12,7 +12,7 @@
 #define MANIPULATION_H
 
 #include <math.h>
-#include <stdio.h> 
+#include <stdio.h>
 #include <eigen3/Eigen/Dense>
 
 // ROS includes.
@@ -22,7 +22,7 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <sensor_msgs/JointState.h>
-#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/Pose.h>
 #include <nav_msgs/Odometry.h>
 
 // Custom message includes. Auto-generated from msg/ directory.
@@ -80,7 +80,7 @@ public:
   void bucketCallback(const srcp2_msgs::ExcavatorMsg::ConstPtr &msg);
 
   // Callback function for subscriber.
-  void goalCallback(const geometry_msgs::PoseStamped::ConstPtr &msg);
+  void goalCallback(const geometry_msgs::Pose::ConstPtr &msg);
   void manipulationStateCallback(const std_msgs::Int64::ConstPtr &msg);
   void haulerOdomCallback(const nav_msgs::Odometry::ConstPtr &msg);
 
@@ -92,7 +92,7 @@ public:
   bool isBucketFull_ = false;
   bool isHaulerInRange_ = false;
 
-  // Bucket Info Init 
+  // Bucket Info Init
   double mass_collected_ = 0.0;
   double remaining_mass_thres_ = 0.1;
 
@@ -129,7 +129,7 @@ private:
   ros::ServiceClient clientFK;
 
   // End-effector Pose Init
-  geometry_msgs::PoseStamped eePose; 
+  geometry_msgs::Pose eePose;
 
   // Excavator Pose Init
   double posx_ = 0.0;
@@ -173,7 +173,7 @@ private:
   double orienty_goal_ = 0.0;
   double orientz_goal_ = 0.0;
   double orientw_goal_ = 0.0;
-  
+
   Eigen::VectorXd pos_goal_ = Eigen::VectorXd::Zero(3);
 
   // bool isArmHome = false;

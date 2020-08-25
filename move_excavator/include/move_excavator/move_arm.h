@@ -12,7 +12,7 @@
 #define MOVE_ARM_H
 
 #include <math.h>
-#include <stdio.h> 
+#include <stdio.h>
 #include <eigen3/Eigen/Dense>
 #include <tf2/convert.h>
 
@@ -20,7 +20,7 @@
 #include <ros/ros.h>
 #include <ros/console.h>
 #include <std_msgs/Int64.h>
-#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/Pose.h>
 #include <sensor_msgs/JointState.h>
 
 // Custom message includes. Auto-generated from msg/ directory.
@@ -65,7 +65,7 @@ private:
   ros::NodeHandle & nh_;
 
   // Publishers
-  ros::Publisher pubJointAngles; 
+  ros::Publisher pubJointAngles;
 
   // Service Servers
   ros::ServiceServer serverHomeArm;
@@ -109,7 +109,7 @@ private:
   Eigen::VectorXd theta_DH = Eigen::VectorXd::Zero(5);
 
   Eigen::VectorXd pos_goal = Eigen::VectorXd::Zero(3);
-  
+
   Eigen::MatrixXd T0Tn = Eigen::MatrixXd::Identity(4,4);
   Eigen::MatrixXd J = Eigen::MatrixXd::Zero(6,4);
   Eigen::MatrixXd pinvJ = Eigen::MatrixXd::Zero(4,6);
@@ -120,7 +120,7 @@ private:
   Eigen::MatrixXd transl(double x, double y, double z);
 
   // Kinematic Functions
-  geometry_msgs::PoseStamped calculateFK(double q1, double q2, double q3, double q4);
+  geometry_msgs::Pose calculateFK(double q1, double q2, double q3, double q4);
 
   // Flags
   bool armControlEnabled_ = false;

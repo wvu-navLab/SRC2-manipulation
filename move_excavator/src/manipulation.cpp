@@ -22,17 +22,17 @@ Manipulation::Manipulation(ros::NodeHandle & nh)
   subHaulerOdom =  nh_.subscribe("/hauler_1/localization/odometry/sensor_fusion", 1000, &Manipulation::haulerOdomCallback, this);
   subJointStates = nh_.subscribe("joint_states", 1000, &Manipulation::jointStateCallback, this);
   subBucketInfo = nh_.subscribe("bucket_info", 1000, &Manipulation::bucketCallback, this);
-  subGoalVolatile = nh_.subscribe("manipulation/volatile_pos", 1000, &Manipulation::goalCallback, this);
+  subGoalVolatile = nh_.subscribe("manipulation/volatile_pose", 1000, &Manipulation::goalCallback, this);
   subManipulationState =  nh_.subscribe("manipulation/state", 1000, &Manipulation::manipulationStateCallback, this);
 
   // Service Clients
-  clientFK = nh_.serviceClient<move_excavator::ExcavatorFK>("excavator_fk");
+  clientFK = nh_.serviceClient<move_excavator::ExcavatorFK>("manipulation/excavator_fk");
 
-  clientHomeArm = nh_.serviceClient<move_excavator::HomeArm>("home_arm");
-  clientDigVolatile = nh_.serviceClient<move_excavator::DigVolatile>("dig_volatile");
-  clientScoop = nh_.serviceClient<move_excavator::Scoop>("scoop");
-  clientExtendArm = nh_.serviceClient<move_excavator::ExtendArm>("extend_arm");
-  clientDropVolatile = nh_.serviceClient<move_excavator::DropVolatile>("drop_volatile");
+  clientHomeArm = nh_.serviceClient<move_excavator::HomeArm>("manipulation/home_arm");
+  clientDigVolatile = nh_.serviceClient<move_excavator::DigVolatile>("manipulation/dig_volatile");
+  clientScoop = nh_.serviceClient<move_excavator::Scoop>("manipulation/scoop");
+  clientExtendArm = nh_.serviceClient<move_excavator::ExtendArm>("manipulation/extend_arm");
+  clientDropVolatile = nh_.serviceClient<move_excavator::DropVolatile>("manipulation/drop_volatile");
 }
 
 void Manipulation::jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg)
@@ -116,15 +116,15 @@ void Manipulation::bucketCallback(const srcp2_msgs::ExcavatorMsg::ConstPtr &msg)
   }
 }
 
-void Manipulation::goalCallback(const geometry_msgs::PoseStamped::ConstPtr &msg)
+void Manipulation::goalCallback(const geometry_msgs::Pose::ConstPtr &msg)
 {
-  x_goal_ = msg->pose.position.x;
-  y_goal_ = msg->pose.position.y;
-  z_goal_ = msg->pose.position.z;
-  orientx_goal_ = msg->pose.orientation.x;
-  orienty_goal_ = msg->pose.orientation.y;
-  orientz_goal_ = msg->pose.orientation.z;
-  orientw_goal_ = msg->pose.orientation.w;
+  x_goal_ = msg->position.x;
+  y_goal_ = msg->position.y;
+  z_goal_ = msg->position.z;
+  orientx_goal_ = msg->orientation.x;
+  orienty_goal_ = msg->orientation.y;
+  orientz_goal_ = msg->orientation.z;
+  orientw_goal_ = msg->orientation.w;
 
   pos_goal_ << x_goal_, y_goal_, z_goal_;
 
@@ -198,10 +198,10 @@ void Manipulation::getForwardKinematics()
   ROS_INFO_STREAM(eePose);
 
 
-  double q2 = eePose.pose.orientation.x;
-  double q3 = eePose.pose.orientation.y;
-  double q4 = eePose.pose.orientation.z;
-  double q1 = eePose.pose.orientation.w;
+  double q2 = eePose.orientation.x;
+  double q3 = eePose.orientation.y;
+  double q4 = eePose.orientation.z;
+  double q1 = eePose.orientation.w;
 
   double r, p, y;
 
@@ -220,9 +220,9 @@ void Manipulation::updateLocalization()
 
   msg.header.stamp = ros::Time::now();
   msg.header.frame_id = "odom";
-  msg.pose.pose.position.x = x_goal_ - eePose.pose.position.x;
-  msg.pose.pose.position.y = y_goal_ - eePose.pose.position.y;
-  msg.pose.pose.position.z = z_goal_ - eePose.pose.position.z;
+  msg.pose.pose.position.x = x_goal_ - eePose.position.x;
+  msg.pose.pose.position.y = y_goal_ - eePose.position.y;
+  msg.pose.pose.position.z = z_goal_ - eePose.position.z;
   msg.pose.pose.orientation.x = 0.0;
   msg.pose.pose.orientation.y = 0.0;
   msg.pose.pose.orientation.z = 0.0;
