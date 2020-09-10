@@ -19,6 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_filters
   tf2_ros
   srcp2_msgs
+  driving_tools
 )
 
 ## System dependencies are found with CMake's conventions
