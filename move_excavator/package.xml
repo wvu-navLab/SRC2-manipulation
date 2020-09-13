@@ -60,6 +60,7 @@
   <build_depend>message_filters</build_depend>
   <build_depend>tf2_ros</build_depend>
   <build_depend>srcp2_msgs</build_depend>
+  <build_depend>driving_tools</build_depend>
 
 
   <build_export_depend>roscpp</build_export_depend>

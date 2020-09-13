@@ -130,11 +130,12 @@ void Manipulation::goalCallback(const geometry_msgs::Pose::ConstPtr &msg)
 
   pos_goal_ << x_goal_, y_goal_, z_goal_;
 
-  // ROS_INFO_STREAM("Goal volatile updated. Pose:" << msg->pose);
+  ROS_INFO_STREAM("Goal volatile updated. Pose:" << *msg);
 }
 
 void Manipulation::manipulationStateCallback(const std_msgs::Int64::ConstPtr &msg)
 {
+  ROS_INFO_STREAM("Callback manipulation state. Commanded:" << msg->data);
   switch (msg->data)
   {
   case STOP:
@@ -177,6 +178,7 @@ void Manipulation::manipulationStateCallback(const std_msgs::Int64::ConstPtr &ms
   case START:
     {
       isManipulationEnabled_ = true;
+      ROS_WARN("Manipulation has started!");
     }
     break;
   }
