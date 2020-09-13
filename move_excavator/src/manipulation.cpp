@@ -15,7 +15,7 @@ Manipulation::Manipulation(ros::NodeHandle & nh)
 {
   // Publishers
   pubExcavationStatus = nh_.advertise<move_excavator::ExcavationStatus>("manipulation/feedback", 1000);
-  pubOdomFromVolatile = nh_.advertise<nav_msgs::Odometry>("localization/pose_update/volatile", 1000);
+  pubMeasurementUpdate = nh_.advertise<geometry_msgs::Pose>("position_update", 10);
 
   // Subscribers
   subOdometry = nh_.subscribe("localization/odometry/sensor_fusion", 1000, &Manipulation::odometryCallback, this);
@@ -105,7 +105,9 @@ void Manipulation::bucketCallback(const srcp2_msgs::ExcavatorMsg::ConstPtr &msg)
     if (!isBucketFull_)
     {
       mass_collected_ = mass_in_bucket_ + mass_collected_;
-    ROS_INFO_STREAM("Total mass collected: " << mass_collected_);
+      ROS_INFO_STREAM("Total mass collected: " << mass_collected_);
+      getForwardKinematics();
+      updateLocalization();
     }
     isBucketFull_ = true;
     // ROS_INFO_STREAM("A Pokemon is on the hook! Mass: " << mass_in_bucket_);
@@ -192,16 +194,16 @@ void Manipulation::getForwardKinematics()
 
   srv.request.joints = q;
   bool success = clientFK.call(srv);
-  eePose = srv.response.eePose;
+  eePose_ = srv.response.eePose;
 
   ROS_INFO("Got the EE position using FK.");
-  ROS_INFO_STREAM(eePose);
+  ROS_INFO_STREAM(eePose_);
 
 
-  double q2 = eePose.orientation.x;
-  double q3 = eePose.orientation.y;
-  double q4 = eePose.orientation.z;
-  double q1 = eePose.orientation.w;
+  double q2 = eePose_.orientation.x;
+  double q3 = eePose_.orientation.y;
+  double q4 = eePose_.orientation.z;
+  double q1 = eePose_.orientation.w;
 
   double r, p, y;
 
@@ -211,24 +213,22 @@ void Manipulation::getForwardKinematics()
 
   ROS_INFO_STREAM("Roll " << r << " Pitch " << p << " Yaw " << y);
 
-  ros::Duration(10).sleep();
+  // ros::Duration(10).sleep();
 }
 
 void Manipulation::updateLocalization()
 {
-  nav_msgs::Odometry msg;
+  geometry_msgs::Pose msg;
 
-  msg.header.stamp = ros::Time::now();
-  msg.header.frame_id = "odom";
-  msg.pose.pose.position.x = x_goal_ - eePose.position.x;
-  msg.pose.pose.position.y = y_goal_ - eePose.position.y;
-  msg.pose.pose.position.z = z_goal_ - eePose.position.z;
-  msg.pose.pose.orientation.x = 0.0;
-  msg.pose.pose.orientation.y = 0.0;
-  msg.pose.pose.orientation.z = 0.0;
-  msg.pose.pose.orientation.w = 0.0;
+  msg.position.x = x_goal_ - eePose_.position.x;
+  msg.position.y = y_goal_ - eePose_.position.y;
+  msg.position.z = 0.0;     // z_goal_ - eePose_.position.z;
+  msg.orientation.x = 0.0;
+  msg.orientation.y = 0.0;
+  msg.orientation.z = 0.0;
+  msg.orientation.w = 0.0;
 
-  pubOdomFromVolatile.publish(msg);
+  pubMeasurementUpdate.publish(msg);
   // ROS_INFO("An update in localization is available.");
 }
 
@@ -330,7 +330,11 @@ int main(int argc, char **argv)
         case SCOOP_MODE:
           {
             manipulation.executeScoop();
-            ros::Duration(3).sleep();
+            ros::Time start_time = ros::Time::now();
+            while(ros::Time::now() - start_time < ros::Duration(3)) 
+            { 
+              ros::spinOnce();
+            }
             manipulation.mode = HOME_MODE;
           }
           break;

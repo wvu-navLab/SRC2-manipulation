@@ -109,7 +109,7 @@ private:
 
   // Publisher
   ros::Publisher pubExcavationStatus;
-  ros::Publisher pubOdomFromVolatile;
+  ros::Publisher pubMeasurementUpdate;
 
   // Subscriber
   ros::Subscriber subOdometry;
@@ -129,7 +129,7 @@ private:
   ros::ServiceClient clientFK;
 
   // End-effector Pose Init
-  geometry_msgs::Pose eePose;
+  geometry_msgs::Pose eePose_;
 
   // Excavator Pose Init
   double posx_ = 0.0;
