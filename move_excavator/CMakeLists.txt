@@ -70,6 +70,7 @@ add_service_files(
   DropVolatile.srv
   DigVolatile.srv
   Scoop.srv
+  AfterScoop.srv
   ExcavatorFK.srv
 )
 

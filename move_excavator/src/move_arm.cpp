@@ -22,6 +22,7 @@ MoveArm::MoveArm(ros::NodeHandle & nh)
   serverDropVolatile = nh_.advertiseService("manipulation/drop_volatile", &MoveArm::DropVolatile, this);
   serverDigVolatile = nh_.advertiseService("manipulation/dig_volatile", &MoveArm::DigVolatile, this);
   serverScoop = nh_.advertiseService("manipulation/scoop", &MoveArm::Scoop, this);
+  serverAfterScoop = nh_.advertiseService("manipulation/after_scoop", &MoveArm::AfterScoop, this);
   serverFK = nh_.advertiseService("manipulation/excavator_fk", &MoveArm::ExcavatorFK, this);
 
   // Link lengths
@@ -112,71 +113,168 @@ Eigen::MatrixXd MoveArm::transl(double x, double y, double z)
 
 bool MoveArm::HomeArm(move_excavator::HomeArm::Request  &req, move_excavator::HomeArm::Response &res)
 {
-  double q1_ = req.heading;
+  double heading_goal = req.heading;
+  double timeout = req.timeLimit;
+  double q1 = req.joints.q1;
+  double q2 = req.joints.q2;
+  double q3 = req.joints.q3;
+  double q4 = req.joints.q4;
+
   ROS_ERROR_STREAM("Take me home, West Virginia.");
-  q.q1 = q1_;
+  q.q1 = q1;
+  q.q2 = JOINT2_MIN;
+  q.q3 = JOINT3_MAX/2;
+  q.q4 = JOINT4_MAX;
+  ROS_ERROR_STREAM("Publishing joint angles (part 1):");
+  std::cout << q << std::endl;
+  pubJointAngles.publish(q);
+  ros::Duration(timeout/2).sleep();
+
+  q.q1 = heading_goal;
   q.q2 = JOINT2_MIN;
   q.q3 = JOINT3_MAX;
   q.q4 = JOINT4_MAX;
-  ROS_ERROR_STREAM("Publishing joint angles:");
+  ROS_ERROR_STREAM("Publishing joint angles (part 2):");
   std::cout << q << std::endl;
   pubJointAngles.publish(q);
+  ros::Duration(timeout/2).sleep();
+
   return true;
 }
 
 bool MoveArm::ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator::ExtendArm::Response &res)
 {
-  double q1_ = req.heading;
+  double heading_goal = req.heading;
+  double timeout = req.timeLimit;
+  double q1 = req.joints.q1;
+  double q2 = req.joints.q2;
+  double q3 = req.joints.q3;
+  double q4 = req.joints.q4;
+
   ROS_ERROR_STREAM("Extending arm.");
-  q.q1 = q1_;
+  q.q1 = q1;
   q.q2 = JOINT2_MIN*2/3;
   q.q3 = 0; //JOINT3_MIN;
   q.q4 = JOINT4_MAX;
-  ROS_ERROR_STREAM("Publishing joint angles:");
+  ROS_ERROR_STREAM("Publishing joint angles (part 1):");
   std::cout << q << std::endl;
   pubJointAngles.publish(q);
+  ros::Duration(timeout/2).sleep();
+
+  q.q1 = heading_goal;
+  q.q2 = JOINT2_MIN*2/3;
+  q.q3 = 0; //JOINT3_MIN;
+  q.q4 = JOINT4_MAX;
+  ROS_ERROR_STREAM("Publishing joint angles (part 2):");
+  std::cout << q << std::endl;
+  pubJointAngles.publish(q);
+  ros::Duration(timeout/2).sleep();
+
   return true;
 }
 
 bool MoveArm::DropVolatile(move_excavator::DropVolatile::Request  &req, move_excavator::DropVolatile::Response &res)
 {
-  double q1_ = req.heading;
-  ROS_ERROR_STREAM("Drop the mic.");
-  q.q1 = q1_;
-  q.q2 = JOINT2_MIN;
+  double heading_goal = req.heading;
+  double timeout = req.timeLimit;
+  double q1 = req.joints.q1;
+  double q2 = req.joints.q2;
+  double q3 = req.joints.q3;
+  double q4 = req.joints.q4;
+
+  ROS_ERROR_STREAM("Hopefully I'm dropping the load in the hauler.");
+  q.q1 = heading_goal;
+  q.q2 = JOINT2_MIN*1/3;
   q.q3 = JOINT3_MIN;
   q.q4 = JOINT4_MAX/2;
-  ROS_ERROR_STREAM("Publishing joint angles:");
+  ROS_ERROR_STREAM("Publishing joint angles (part 1):");
   std::cout << q << std::endl;
   pubJointAngles.publish(q);
+  ros::Duration(timeout*3/4).sleep();
+
+  q.q1 = heading_goal;
+  q.q2 = JOINT2_MIN*3/4;
+  q.q3 = JOINT3_MIN;
+  q.q4 = JOINT4_MAX/2;
+  ROS_ERROR_STREAM("Publishing joint angles (part 2):");
+  std::cout << q << std::endl;
+  pubJointAngles.publish(q);
+  ros::Duration(timeout*1/4).sleep();
+
   return true;
 }
 
 bool MoveArm::DigVolatile(move_excavator::DigVolatile::Request  &req, move_excavator::DigVolatile::Response &res)
 {
-  double q1_ = req.heading;
+  double heading_goal = req.heading;
+  double timeout = req.timeLimit;
+  double q1 = req.joints.q1;
+  double q2 = req.joints.q2;
+  double q3 = req.joints.q3;
+  double q4 = req.joints.q4;
+
   ROS_ERROR_STREAM("Drop the mic.");
-  q.q1 = q1_;
-  q.q2 = JOINT2_MAX/3;
+  q.q1 = heading_goal;
+  q.q2 = JOINT2_MAX*1/3;
   q.q3 = 0;
-  q.q4 = JOINT4_MAX/2;
-  ROS_ERROR_STREAM("Publishing joint angles:");
+  q.q4 = JOINT4_MAX/4;
+  ROS_ERROR_STREAM("Publishing joint angles (part 1):");
   std::cout << q << std::endl;
   pubJointAngles.publish(q);
+  ros::Duration(timeout/2).sleep();
+
+  q.q1 = heading_goal;
+  q.q2 = JOINT2_MAX*2/3;
+  q.q3 = JOINT3_MAX/3;
+  q.q4 = JOINT4_MAX/2;
+  ROS_ERROR_STREAM("Publishing joint angles (part 2):");
+  std::cout << q << std::endl;
+  pubJointAngles.publish(q);
+  ros::Duration(timeout/2).sleep();
+
   return true;
 }
 
 bool MoveArm::Scoop(move_excavator::Scoop::Request  &req, move_excavator::Scoop::Response &res)
 {
-  double q1_ = req.heading;
-  ROS_ERROR_STREAM("Drop the mic.");
-  q.q1 = q1_;
-  q.q2 = JOINT2_MAX/2;
+  double heading_goal = req.heading;
+  double timeout = req.timeLimit;
+  double q1 = req.joints.q1;
+  double q2 = req.joints.q2;
+  double q3 = req.joints.q3;
+  double q4 = req.joints.q4;
+  
+  ROS_ERROR_STREAM("One scoop of volatile for us.");
+  q.q1 = heading_goal;
+  q.q2 = JOINT2_MAX*2/3;
   q.q3 = JOINT3_MAX/2;
   q.q4 = JOINT4_MAX;
-  ROS_ERROR_STREAM("Publishing joint angles:");
+  ROS_ERROR_STREAM("Publishing joint angles :");
   std::cout << q << std::endl;
   pubJointAngles.publish(q);
+
+  return true;
+}
+
+bool MoveArm::AfterScoop(move_excavator::AfterScoop::Request  &req, move_excavator::AfterScoop::Response &res)
+{
+  double heading_goal = req.heading;
+  double timeout = req.timeLimit;
+  double q1 = req.joints.q1;
+  double q2 = req.joints.q2;
+  double q3 = req.joints.q3;
+  double q4 = req.joints.q4;
+  
+  ROS_ERROR_STREAM("After scoop.");
+  q.q1 = heading_goal;
+  q.q2 = JOINT2_MAX*1/3;
+  q.q3 = JOINT3_MAX/2;
+  q.q4 = JOINT4_MAX;
+  ROS_ERROR_STREAM("Publishing joint angles :");
+  std::cout << q << std::endl;
+  pubJointAngles.publish(q);
+  ros::Duration(timeout).sleep();
+
   return true;
 }
 

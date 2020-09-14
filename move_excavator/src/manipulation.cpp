@@ -31,6 +31,7 @@ Manipulation::Manipulation(ros::NodeHandle & nh)
   clientHomeArm = nh_.serviceClient<move_excavator::HomeArm>("manipulation/home_arm");
   clientDigVolatile = nh_.serviceClient<move_excavator::DigVolatile>("manipulation/dig_volatile");
   clientScoop = nh_.serviceClient<move_excavator::Scoop>("manipulation/scoop");
+  clientAfterScoop = nh_.serviceClient<move_excavator::AfterScoop>("manipulation/after_scoop");
   clientExtendArm = nh_.serviceClient<move_excavator::ExtendArm>("manipulation/extend_arm");
   clientDropVolatile = nh_.serviceClient<move_excavator::DropVolatile>("manipulation/drop_volatile");
 }
@@ -145,38 +146,39 @@ void Manipulation::manipulationStateCallback(const std_msgs::Int64::ConstPtr &ms
   {
   case STOP:
     {
-      executeHomeArm();
+      executeHomeArm(10);
       isManipulationEnabled_ = false;
     }
     break;
   case HOME_MODE:
     {
-      executeHomeArm();
+      executeHomeArm(10);
       ros::Duration(3).sleep();
     }
     break;
   case DIG_MODE:
     {
-      executeDig();
+      executeDig(5);
       ros::Duration(3).sleep();
     }
     break;
   case SCOOP_MODE:
     {
       getForwardKinematics();
-      executeScoop();
+      executeScoop(3);
       ros::Duration(3).sleep();
+      executeAfterScoop(3);
     }
     break;
   case EXTEND_MODE:
     {
-      executeExtendArm();
+      executeExtendArm(10);
       ros::Duration(3).sleep();
     }
     break;
   case DROP_MODE:
     {
-      executeDrop();
+      executeDrop(3);
       ros::Duration(3).sleep();
     }
     break;
@@ -243,43 +245,100 @@ void Manipulation::updateLocalization()
   ROS_INFO_STREAM("An update in localization is available. Correction pose: " << msg);
 }
 
-void Manipulation::executeHomeArm()
+void Manipulation::executeHomeArm(double timeout)
 {
   move_excavator::HomeArm srv;
+  motion_control::JointGroup q;
+  q.q1 = q1_pos_;
+  q.q2 = q2_pos_;
+  q.q3 = q3_pos_;
+  q.q4 = q4_pos_;
+
   srv.request.heading = 0;
-  srv.request.timeLimit = 100;
+  srv.request.timeLimit = timeout;
+  srv.request.joints = q;
+
   bool success = clientHomeArm.call(srv);
 }
 
-void Manipulation::executeDig()
+void Manipulation::executeDig(double timeout)
 {
   move_excavator::DigVolatile srv;
+  motion_control::JointGroup q;
+  q.q1 = q1_pos_;
+  q.q2 = q2_pos_;
+  q.q3 = q3_pos_;
+  q.q4 = q4_pos_;
+
   srv.request.heading = relative_heading_vol_;
-  srv.request.timeLimit = 100;
+  srv.request.timeLimit = timeout;
+  srv.request.joints = q;
+
   bool success = clientDigVolatile.call(srv);
 }
 
-void Manipulation::executeScoop()
+void Manipulation::executeScoop(double timeout)
 {
   move_excavator::Scoop srv;
+  motion_control::JointGroup q;
+  q.q1 = q1_pos_;
+  q.q2 = q2_pos_;
+  q.q3 = q3_pos_;
+  q.q4 = q4_pos_;
+
   srv.request.heading = relative_heading_vol_;
-  srv.request.timeLimit = 100;
+  srv.request.timeLimit = timeout;
+  srv.request.joints = q;
+
   bool success = clientScoop.call(srv);
 }
 
-void Manipulation::executeExtendArm()
+void Manipulation::executeAfterScoop(double timeout)
+{
+  move_excavator::AfterScoop srv;
+  motion_control::JointGroup q;
+  q.q1 = q1_pos_;
+  q.q2 = q2_pos_;
+  q.q3 = q3_pos_;
+  q.q4 = q4_pos_;
+
+  srv.request.heading = relative_heading_vol_;
+  srv.request.timeLimit = timeout;
+  srv.request.joints = q;
+
+  bool success = clientAfterScoop.call(srv);
+}
+
+
+void Manipulation::executeExtendArm(double timeout)
 {
   move_excavator::ExtendArm srv;
+  motion_control::JointGroup q;
+  q.q1 = q1_pos_;
+  q.q2 = q2_pos_;
+  q.q3 = q3_pos_;
+  q.q4 = q4_pos_;
+
   srv.request.heading = relative_heading_;
-  srv.request.timeLimit = 100;
+  srv.request.timeLimit = timeout;
+  srv.request.joints = q;
+
   bool success = clientExtendArm.call(srv);
 }
 
-void Manipulation::executeDrop()
+void Manipulation::executeDrop(double timeout)
 {
   move_excavator::DropVolatile srv;
+  motion_control::JointGroup q;
+  q.q1 = q1_pos_;
+  q.q2 = q2_pos_;
+  q.q3 = q3_pos_;
+  q.q4 = q4_pos_;
+
   srv.request.heading = relative_heading_;
-  srv.request.timeLimit = 100;
+  srv.request.timeLimit = timeout;
+  srv.request.joints = q;
+  
   bool success = clientDropVolatile.call(srv);
 }
 
@@ -317,8 +376,8 @@ int main(int argc, char **argv)
         {
         case HOME_MODE:
           {
-            manipulation.executeHomeArm();
-            ros::Duration(10).sleep();
+            manipulation.executeHomeArm(10);
+            // ros::Duration(10).sleep();
             if(manipulation.isBucketFull_)
             {
               manipulation.mode = EXTEND_MODE;
@@ -333,14 +392,14 @@ int main(int argc, char **argv)
           break;
         case DIG_MODE:
           {
-            manipulation.executeDig();
-            ros::Duration(5).sleep();
+            manipulation.executeDig(5);
+            // ros::Duration(5).sleep();
             manipulation.mode = SCOOP_MODE;
           }
           break;
         case SCOOP_MODE:
           {
-            manipulation.executeScoop();
+            manipulation.executeScoop(0);
             ros::Time start_time = ros::Time::now();
             ros::Rate scoop_rate(100);
             while(ros::Time::now() - start_time < ros::Duration(3))
@@ -348,13 +407,14 @@ int main(int argc, char **argv)
               ros::spinOnce();
               rate.sleep();
             }
+            manipulation.executeAfterScoop(2);
             manipulation.mode = HOME_MODE;
           }
           break;
         case EXTEND_MODE:
           {
-            manipulation.executeExtendArm();
-            ros::Duration(10).sleep();
+            manipulation.executeExtendArm(10);
+            // ros::Duration(10).sleep();
             if(manipulation.isHaulerInRange_)
             {
               manipulation.mode = DROP_MODE;
@@ -363,12 +423,12 @@ int main(int argc, char **argv)
           break;
         case DROP_MODE:
           {
-            manipulation.executeDrop();
-            ros::Duration(3).sleep();
+            manipulation.executeDrop(3);
+            // ros::Duration(3).sleep();
             if(abs(100-manipulation.mass_collected_)<manipulation.remaining_mass_thres_)
             {
               manipulation.isManipulationEnabled_ = false;
-              manipulation.executeHomeArm();
+              manipulation.executeHomeArm(10);
               manipulation.outputManipulationStatus();
             }
             manipulation.mode = HOME_MODE;

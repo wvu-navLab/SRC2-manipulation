@@ -39,6 +39,7 @@
 #include <move_excavator/HomeArm.h>
 #include <move_excavator/DigVolatile.h>
 #include <move_excavator/Scoop.h>
+#include <move_excavator/AfterScoop.h>
 #include <move_excavator/ExtendArm.h>
 #include <move_excavator/DropVolatile.h>
 #include <move_excavator/ExcavatorFK.h>
@@ -96,11 +97,12 @@ public:
   double mass_collected_ = 0.0;
   double remaining_mass_thres_ = 0.1;
 
-  void executeHomeArm();
-  void executeDig();
-  void executeScoop();
-  void executeExtendArm();
-  void executeDrop();
+  void executeHomeArm(double timeout);
+  void executeDig(double timeout);
+  void executeScoop(double timeout);
+  void executeAfterScoop(double timeout);
+  void executeExtendArm(double timeout);
+  void executeDrop(double timeout);
   void outputManipulationStatus();
 
 private:
@@ -124,6 +126,7 @@ private:
   ros::ServiceClient clientExtendArm;
   ros::ServiceClient clientDigVolatile;
   ros::ServiceClient clientScoop;
+  ros::ServiceClient clientAfterScoop;
   ros::ServiceClient clientDropVolatile;
 
   ros::ServiceClient clientFK;

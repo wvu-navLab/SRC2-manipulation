@@ -29,6 +29,7 @@
 #include <move_excavator/ExtendArm.h>
 #include <move_excavator/DropVolatile.h>
 #include <move_excavator/Scoop.h>
+#include <move_excavator/AfterScoop.h>
 #include <move_excavator/DigVolatile.h>
 #include <move_excavator/ExcavatorFK.h>
 
@@ -57,8 +58,10 @@ public:
   bool ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator::ExtendArm::Response &res);
   bool DropVolatile(move_excavator::DropVolatile::Request  &req, move_excavator::DropVolatile::Response &res);
   bool Scoop(move_excavator::Scoop::Request  &req, move_excavator::Scoop::Response &res);
+  bool AfterScoop(move_excavator::AfterScoop::Request  &req, move_excavator::AfterScoop::Response &res);
   bool DigVolatile(move_excavator::DigVolatile::Request  &req, move_excavator::DigVolatile::Response &res);
   bool ExcavatorFK(move_excavator::ExcavatorFK::Request &req, move_excavator::ExcavatorFK::Response &res);
+
 
 private:
   // Node Handle
@@ -72,6 +75,7 @@ private:
   ros::ServiceServer serverExtendArm;
   ros::ServiceServer serverDropVolatile;
   ros::ServiceServer serverScoop;
+  ros::ServiceServer serverAfterScoop;
   ros::ServiceServer serverDigVolatile;
   ros::ServiceServer serverFK;
 
