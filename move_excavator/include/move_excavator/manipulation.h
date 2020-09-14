@@ -155,6 +155,7 @@ private:
   double orientw_hauler_ = 0.0;
 
   double relative_heading_;
+  double relative_heading_vol_;
 
   // Joint Positions Init
   double q1_pos_ = 0.0;

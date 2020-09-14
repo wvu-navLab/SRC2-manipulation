@@ -61,6 +61,11 @@ void Manipulation::odometryCallback(const nav_msgs::Odometry::ConstPtr &msg)
   tf2::Matrix3x3 m(quat); // q is your quaternion message, dont take just q, but normalize it with q.normalize()
   m.getRPY(roll_, pitch_, yaw_); //get your roll pitch yaw from the quaternion message.
 
+
+  double dx = (x_goal_ - posx_);
+  double dy = (y_goal_ - posy_);
+  relative_heading_vol_ = atan2(dy,dx) - yaw_;
+
   // ROS_INFO_STREAM("Excavator odometry updated. Pose:" << msg->pose.pose);
 }
 
@@ -196,8 +201,12 @@ void Manipulation::getForwardKinematics()
 
   srv.request.joints = q;
   bool success = clientFK.call(srv);
-  eePose_ = srv.response.eePose;
+  geometry_msgs::Pose eePose_bodyframe;
+  eePose_bodyframe = srv.response.eePose;
 
+  eePose_.position.x = (eePose_bodyframe.position.x * cos(yaw_) - eePose_bodyframe.position.y * sin(yaw_)) + posx_;
+  eePose_.position.y = (eePose_bodyframe.position.x * sin(yaw_) + eePose_bodyframe.position.y * cos(yaw_)) + posy_;
+  eePose_.position.z = eePose_bodyframe.position.z + posz_;
   ROS_INFO("Got the EE position using FK.");
   ROS_INFO_STREAM(eePose_);
 
@@ -222,8 +231,8 @@ void Manipulation::updateLocalization()
 {
   geometry_msgs::Pose msg;
 
-  msg.position.x = x_goal_ - eePose_.position.x;
-  msg.position.y = y_goal_ - eePose_.position.y;
+  msg.position.x = x_goal_ -  eePose_.position.x;
+  msg.position.y = y_goal_ -  eePose_.position.y;
   msg.position.z = 0.0;     // z_goal_ - eePose_.position.z;
   msg.orientation.x = 0.0;
   msg.orientation.y = 0.0;
@@ -231,7 +240,7 @@ void Manipulation::updateLocalization()
   msg.orientation.w = 0.0;
 
   pubMeasurementUpdate.publish(msg);
-  // ROS_INFO("An update in localization is available.");
+  ROS_INFO_STREAM("An update in localization is available. Correction pose: " << msg);
 }
 
 void Manipulation::executeHomeArm()
@@ -245,7 +254,7 @@ void Manipulation::executeHomeArm()
 void Manipulation::executeDig()
 {
   move_excavator::DigVolatile srv;
-  srv.request.heading = 0;
+  srv.request.heading = relative_heading_vol_;
   srv.request.timeLimit = 100;
   bool success = clientDigVolatile.call(srv);
 }
@@ -253,7 +262,7 @@ void Manipulation::executeDig()
 void Manipulation::executeScoop()
 {
   move_excavator::Scoop srv;
-  srv.request.heading = 0;
+  srv.request.heading = relative_heading_vol_;
   srv.request.timeLimit = 100;
   bool success = clientScoop.call(srv);
 }
@@ -333,9 +342,11 @@ int main(int argc, char **argv)
           {
             manipulation.executeScoop();
             ros::Time start_time = ros::Time::now();
-            while(ros::Time::now() - start_time < ros::Duration(3)) 
-            { 
+            ros::Rate scoop_rate(100);
+            while(ros::Time::now() - start_time < ros::Duration(3))
+            {
               ros::spinOnce();
+              rate.sleep();
             }
             manipulation.mode = HOME_MODE;
           }
