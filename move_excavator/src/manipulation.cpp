@@ -65,7 +65,6 @@ void Manipulation::odometryCallback(const nav_msgs::Odometry::ConstPtr &msg)
 
   double dx = (x_goal_ - posx_);
   double dy = (y_goal_ - posy_);
-  relative_heading_vol_ = atan2(dy,dx) - yaw_;
 
   // ROS_INFO_STREAM("Excavator odometry updated. Pose:" << msg->pose.pose);
 }
@@ -114,6 +113,7 @@ void Manipulation::bucketCallback(const srcp2_msgs::ExcavatorMsg::ConstPtr &msg)
       ROS_INFO_STREAM("Total mass collected: " << mass_collected_);
       getForwardKinematics();
       updateLocalization();
+      found_volatile_ = true;
     }
     isBucketFull_ = true;
     // ROS_INFO_STREAM("A Pokemon is on the hook! Mass: " << mass_in_bucket_);
@@ -185,6 +185,7 @@ void Manipulation::manipulationStateCallback(const std_msgs::Int64::ConstPtr &ms
   case START:
     {
       isManipulationEnabled_ = true;
+      manipulation_start_time_ = ros::Time::now();
       ROS_WARN("Manipulation has started!");
     }
     break;
@@ -206,12 +207,14 @@ void Manipulation::getForwardKinematics()
   geometry_msgs::Pose eePose_bodyframe;
   eePose_bodyframe = srv.response.eePose;
 
+  // TODO: INCLUDE FULL ROTATION MATIRX
   eePose_.position.x = (eePose_bodyframe.position.x * cos(yaw_) - eePose_bodyframe.position.y * sin(yaw_)) + posx_;
   eePose_.position.y = (eePose_bodyframe.position.x * sin(yaw_) + eePose_bodyframe.position.y * cos(yaw_)) + posy_;
   eePose_.position.z = eePose_bodyframe.position.z + posz_;
-  ROS_INFO("Got the EE position using FK.");
-  ROS_INFO_STREAM(eePose_);
 
+  eePose_.orientation = eePose_bodyframe.orientation;
+
+  ROS_INFO_STREAM("Got the end-effector global position using FK. Position: " << eePose_.position);
 
   double q2 = eePose_.orientation.x;
   double q3 = eePose_.orientation.y;
@@ -224,7 +227,7 @@ void Manipulation::getForwardKinematics()
   tf2::Matrix3x3 m(quat); // q is your quaternion message, dont take just q, but normalize it with q.normalize()
   m.getRPY(r, p, y); //get your roll pitch yaw from the quaternion message.
 
-  ROS_INFO_STREAM("Roll " << r << " Pitch " << p << " Yaw " << y);
+  // ROS_INFO_STREAM("Roll " << r << " Pitch " << p << " Yaw " << y);
 
   // ros::Duration(10).sleep();
 }
@@ -235,14 +238,14 @@ void Manipulation::updateLocalization()
 
   msg.position.x = x_goal_ -  eePose_.position.x;
   msg.position.y = y_goal_ -  eePose_.position.y;
-  msg.position.z = 0.0;     // z_goal_ - eePose_.position.z;
+  msg.position.z = z_goal_ - eePose_.position.z;
   msg.orientation.x = 0.0;
   msg.orientation.y = 0.0;
   msg.orientation.z = 0.0;
   msg.orientation.w = 0.0;
 
   pubMeasurementUpdate.publish(msg);
-  ROS_INFO_STREAM("An update in localization is available. Correction pose: " << msg);
+  ROS_INFO_STREAM("An update in localization is available. Correction pose: " << msg.position);
 }
 
 void Manipulation::executeHomeArm(double timeout)
@@ -270,7 +273,7 @@ void Manipulation::executeDig(double timeout)
   q.q3 = q3_pos_;
   q.q4 = q4_pos_;
 
-  srv.request.heading = relative_heading_vol_;
+  srv.request.heading = heading_options_[scoop_counter_-1];
   srv.request.timeLimit = timeout;
   srv.request.joints = q;
 
@@ -286,7 +289,7 @@ void Manipulation::executeScoop(double timeout)
   q.q3 = q3_pos_;
   q.q4 = q4_pos_;
 
-  srv.request.heading = relative_heading_vol_;
+  srv.request.heading = heading_options_[scoop_counter_-1];
   srv.request.timeLimit = timeout;
   srv.request.joints = q;
 
@@ -302,7 +305,7 @@ void Manipulation::executeAfterScoop(double timeout)
   q.q3 = q3_pos_;
   q.q4 = q4_pos_;
 
-  srv.request.heading = relative_heading_vol_;
+  srv.request.heading = heading_options_[scoop_counter_];
   srv.request.timeLimit = timeout;
   srv.request.joints = q;
 
@@ -348,7 +351,7 @@ void Manipulation::outputManipulationStatus()
   msg.isFinished = true;
   msg.collectedMass = mass_collected_;
   pubExcavationStatus.publish(msg);
-  ROS_INFO("Manipulation has finished.");
+  ROS_INFO("Manipulation has finished. Publishing to State Machine.");
 }
 
 /*!
@@ -370,28 +373,44 @@ int main(int argc, char **argv)
     ros::Rate rate(50);
     while(ros::ok())
     {
-      if (manipulation.isManipulationEnabled_)
+      if (manipulation.isManipulationEnabled_ && (ros::Time::now() - manipulation.manipulation_start_time_) < ros::Duration(420))
       {
         switch (manipulation.mode)
         {
         case HOME_MODE:
           {
             manipulation.executeHomeArm(10);
-            // ros::Duration(10).sleep();
-            if(manipulation.isBucketFull_)
+            if(manipulation.scoop_counter_ > 4)
             {
-              manipulation.mode = EXTEND_MODE;
-              // ROS_INFO_STREAM("Is bucket full: " << manipulation.isBucketFull_);
+              manipulation.isManipulationEnabled_ = false;
+              manipulation.outputManipulationStatus();
+              manipulation.found_volatile_ = false;
+              manipulation.scoop_counter_ = 0;
+              ROS_ERROR_STREAM("Manipulation interrupted by scoop counter.");
             }
             else
             {
-              manipulation.mode = DIG_MODE;
-              // ROS_INFO_STREAM("Is bucket full: " << manipulation.isBucketFull_);
+              // ros::Duration(10).sleep();
+              if(manipulation.isBucketFull_)
+              {
+                manipulation.mode = EXTEND_MODE;
+                // ROS_INFO_STREAM("Is bucket full: " << manipulation.isBucketFull_);
+              }
+              else
+              {
+                manipulation.mode = DIG_MODE;
+                // ROS_INFO_STREAM("Is bucket full: " << manipulation.isBucketFull_);
+              }
             }
           }
           break;
         case DIG_MODE:
           {
+            if (!manipulation.found_volatile_)
+            {
+              manipulation.scoop_counter_++;
+            }
+            ROS_INFO_STREAM("Scoop counter: " << manipulation.scoop_counter_);
             manipulation.executeDig(5);
             // ros::Duration(5).sleep();
             manipulation.mode = SCOOP_MODE;
@@ -415,10 +434,11 @@ int main(int argc, char **argv)
           {
             manipulation.executeExtendArm(10);
             // ros::Duration(10).sleep();
-            if(manipulation.isHaulerInRange_)
-            {
-              manipulation.mode = DROP_MODE;
-            }
+            // if(manipulation.isHaulerInRange_)
+            // {
+            //   manipulation.mode = DROP_MODE;
+            // }
+            manipulation.mode = DROP_MODE;
           }
           break;
         case DROP_MODE:
@@ -430,12 +450,32 @@ int main(int argc, char **argv)
               manipulation.isManipulationEnabled_ = false;
               manipulation.executeHomeArm(10);
               manipulation.outputManipulationStatus();
+              manipulation.found_volatile_ = false;
+              manipulation.scoop_counter_ = 0;
+              ROS_ERROR_STREAM("Manipulation finished after getting the volatile.");
             }
             manipulation.mode = HOME_MODE;
           }
           break;
         }
       }
+      else if (manipulation.isManipulationEnabled_ && (ros::Time::now() - manipulation.manipulation_start_time_) > ros::Duration(420))
+
+      {
+        manipulation.isManipulationEnabled_ = false;
+        manipulation.outputManipulationStatus();
+        manipulation.found_volatile_ = false;
+        manipulation.scoop_counter_ = -1;
+        ROS_ERROR_STREAM("Manipulation interrupted by timeout.");
+      }
+      else
+      { 
+        manipulation.isManipulationEnabled_ = false;
+        manipulation.found_volatile_ = false;
+        manipulation.scoop_counter_ = -1;
+        ROS_ERROR_THROTTLE(2,"Manipulation disabled.");
+      }
+      
 
       ros::spinOnce();
       rate.sleep();

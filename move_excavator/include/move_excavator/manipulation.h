@@ -92,6 +92,12 @@ public:
   bool isManipulationEnabled_ = false;
   bool isBucketFull_ = false;
   bool isHaulerInRange_ = false;
+  bool found_volatile_ = false;
+  int scoop_counter_ = 0;
+
+  std::vector<double> heading_options_{0.0, M_PI/12, -M_PI/12, M_PI/6, -M_PI/6};
+
+  ros::Time manipulation_start_time_ = ros::Time::now();
 
   // Bucket Info Init
   double mass_collected_ = 0.0;
@@ -158,7 +164,6 @@ private:
   double orientw_hauler_ = 0.0;
 
   double relative_heading_;
-  double relative_heading_vol_;
 
   // Joint Positions Init
   double q1_pos_ = 0.0;
