@@ -93,13 +93,11 @@ public:
   bool isBucketFull_ = false;
   bool isHaulerInRange_ = false;
   bool found_volatile_ = false;
-  int scoop_counter_ = 0;
-
-  std::vector<double> heading_options_{0.0, M_PI/12, -M_PI/12, M_PI/6, -M_PI/6};
 
   ros::Time manipulation_start_time_ = ros::Time::now();
 
   // Bucket Info Init
+  int scoop_counter_ = 0;
   double mass_collected_ = 0.0;
   double remaining_mass_thres_ = 0.1;
 
@@ -185,9 +183,12 @@ private:
 
   Eigen::VectorXd pos_goal_ = Eigen::VectorXd::Zero(3);
 
-  // bool isArmHome = false;
-  // bool enableAlign = false;
-  // bool isAligned = false;
+  int optimization_counter_ = 0;
+  double volatile_heading_;
+  std::vector<double> heading_options_{0.0, M_PI/12, -M_PI/12, M_PI/6, -M_PI/6};
+  std::vector<double> optimization_options_{M_PI/24, -M_PI/24};
+  std::vector<double> mass_optimization_{0.0, 0.0, 0.0};
+
 
   void getForwardKinematics();
   void updateLocalization();

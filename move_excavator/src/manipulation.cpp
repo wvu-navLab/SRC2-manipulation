@@ -14,16 +14,16 @@ Manipulation::Manipulation(ros::NodeHandle & nh)
 : nh_(nh)
 {
   // Publishers
-  pubExcavationStatus = nh_.advertise<move_excavator::ExcavationStatus>("manipulation/feedback", 1000);
-  pubMeasurementUpdate = nh_.advertise<geometry_msgs::Pose>("position_update", 10);
+  pubExcavationStatus = nh_.advertise<move_excavator::ExcavationStatus>("manipulation/feedback", 10);
+  pubMeasurementUpdate = nh_.advertise<geometry_msgs::Pose>("position_update", 1);
 
   // Subscribers
-  subOdometry = nh_.subscribe("localization/odometry/sensor_fusion", 1000, &Manipulation::odometryCallback, this);
-  subHaulerOdom =  nh_.subscribe("/hauler_1/localization/odometry/sensor_fusion", 1000, &Manipulation::haulerOdomCallback, this);
-  subJointStates = nh_.subscribe("joint_states", 1000, &Manipulation::jointStateCallback, this);
-  subBucketInfo = nh_.subscribe("bucket_info", 1000, &Manipulation::bucketCallback, this);
-  subGoalVolatile = nh_.subscribe("manipulation/volatile_pose", 1000, &Manipulation::goalCallback, this);
-  subManipulationState =  nh_.subscribe("manipulation/state", 1000, &Manipulation::manipulationStateCallback, this);
+  subOdometry = nh_.subscribe("localization/odometry/sensor_fusion", 10, &Manipulation::odometryCallback, this);
+  subHaulerOdom =  nh_.subscribe("/hauler_1/localization/odometry/sensor_fusion", 10, &Manipulation::haulerOdomCallback, this);
+  subJointStates = nh_.subscribe("joint_states", 1, &Manipulation::jointStateCallback, this);
+  subBucketInfo = nh_.subscribe("bucket_info", 1, &Manipulation::bucketCallback, this);
+  subGoalVolatile = nh_.subscribe("manipulation/volatile_pose", 1, &Manipulation::goalCallback, this);
+  subManipulationState =  nh_.subscribe("manipulation/state", 1, &Manipulation::manipulationStateCallback, this);
 
   // Service Clients
   clientFK = nh_.serviceClient<move_excavator::ExcavatorFK>("manipulation/excavator_fk");
@@ -59,12 +59,8 @@ void Manipulation::odometryCallback(const nav_msgs::Odometry::ConstPtr &msg)
   orientw_ = msg->pose.pose.orientation.w;
 
   tf2::Quaternion quat(orientx_, orienty_, orientz_, orientw_); //or_x,or_y,or_z, and or_w are orientation message from nav_msg
-  tf2::Matrix3x3 m(quat); // q is your quaternion message, dont take just q, but normalize it with q.normalize()
-  m.getRPY(roll_, pitch_, yaw_); //get your roll pitch yaw from the quaternion message.
-
-
-  double dx = (x_goal_ - posx_);
-  double dy = (y_goal_ - posy_);
+  tf2::Matrix3x3 rover_rot_matrix_(quat); // q is your quaternion message, dont take just q, but normalize it with q.normalize()
+  rover_rot_matrix_.getRPY(roll_, pitch_, yaw_); //get your roll pitch yaw from the quaternion message.
 
   // ROS_INFO_STREAM("Excavator odometry updated. Pose:" << msg->pose.pose);
 }
@@ -83,7 +79,9 @@ void Manipulation::haulerOdomCallback(const nav_msgs::Odometry::ConstPtr &msg)
   double dx = (posx_hauler_ - posx_);
   double dy = (posy_hauler_ - posy_);
   double dz = (posz_hauler_ - posz_);
+
   double relative_range = sqrt(dx*dx + dy*dy + dz*dz);
+  
   if (relative_range < 2.5)
   {
     isHaulerInRange_ = true;
@@ -114,6 +112,13 @@ void Manipulation::bucketCallback(const srcp2_msgs::ExcavatorMsg::ConstPtr &msg)
       getForwardKinematics();
       updateLocalization();
       found_volatile_ = true;
+      if (optimization_counter_<3)
+      {
+        mass_optimization_[optimization_counter_] = mass_in_bucket_;
+        ROS_INFO_STREAM("Mass optimization first dig: " << mass_optimization_[0]);
+        ROS_INFO_STREAM("Mass optimization second dig: " << mass_optimization_[1]);
+        ROS_INFO_STREAM("Mass optimization third dig: " << mass_optimization_[2]);
+      }
     }
     isBucketFull_ = true;
     // ROS_INFO_STREAM("A Pokemon is on the hook! Mass: " << mass_in_bucket_);
@@ -185,7 +190,14 @@ void Manipulation::manipulationStateCallback(const std_msgs::Int64::ConstPtr &ms
   case START:
     {
       isManipulationEnabled_ = true;
+      found_volatile_ = false;
+      mass_collected_ = 0;
+      optimization_counter_ = 0;
+      scoop_counter_ = 0;
       manipulation_start_time_ = ros::Time::now();
+      mass_optimization_[0] = 0.0;
+      mass_optimization_[1] = 0.0;
+      mass_optimization_[2] = 0.0;
       ROS_WARN("Manipulation has started!");
     }
     break;
@@ -273,7 +285,45 @@ void Manipulation::executeDig(double timeout)
   q.q3 = q3_pos_;
   q.q4 = q4_pos_;
 
-  srv.request.heading = heading_options_[scoop_counter_-1];
+  if(found_volatile_)
+  {
+    ROS_INFO_STREAM("Volatile was previously found");
+    if (optimization_counter_<2)
+    {
+      volatile_heading_ = heading_options_[scoop_counter_-1] + optimization_options_[optimization_counter_];
+      ROS_INFO_STREAM("Optimization counter. Step: " << optimization_counter_);
+    }
+    else
+    {
+      ROS_INFO_STREAM("I have three points for optimization.");
+      if (mass_optimization_[1] > mass_optimization_[0] && mass_optimization_[1] > mass_optimization_[2])
+      {
+        ROS_INFO_STREAM("Left point had more mass.");
+        volatile_heading_ = heading_options_[scoop_counter_-1] + optimization_options_[0];
+      }
+      else if (mass_optimization_[2] > mass_optimization_[1] && mass_optimization_[2] > mass_optimization_[0])
+      {
+        ROS_INFO_STREAM("Right point had more mass.");
+        volatile_heading_ = heading_options_[scoop_counter_-1] + optimization_options_[1];
+      }
+      else
+      {
+        ROS_INFO_STREAM("Center point had more mass.");
+        volatile_heading_ = heading_options_[scoop_counter_-1];
+      }
+    }
+    optimization_counter_++;
+  }
+  else
+  {
+    ROS_INFO_STREAM("Volatile not found yet");
+    volatile_heading_ = heading_options_[scoop_counter_-1];
+  }
+
+  ROS_INFO_STREAM("Heading sent for digging: " << volatile_heading_*180/M_PI);
+
+
+  srv.request.heading = volatile_heading_;
   srv.request.timeLimit = timeout;
   srv.request.joints = q;
 
@@ -289,7 +339,7 @@ void Manipulation::executeScoop(double timeout)
   q.q3 = q3_pos_;
   q.q4 = q4_pos_;
 
-  srv.request.heading = heading_options_[scoop_counter_-1];
+  srv.request.heading = volatile_heading_;
   srv.request.timeLimit = timeout;
   srv.request.joints = q;
 
@@ -305,7 +355,7 @@ void Manipulation::executeAfterScoop(double timeout)
   q.q3 = q3_pos_;
   q.q4 = q4_pos_;
 
-  srv.request.heading = heading_options_[scoop_counter_];
+  srv.request.heading = volatile_heading_;
   srv.request.timeLimit = timeout;
   srv.request.joints = q;
 
@@ -349,6 +399,7 @@ void Manipulation::outputManipulationStatus()
 {
   move_excavator::ExcavationStatus msg;
   msg.isFinished = true;
+  msg.foundVolatile = found_volatile_;
   msg.collectedMass = mass_collected_;
   pubExcavationStatus.publish(msg);
   ROS_INFO("Manipulation has finished. Publishing to State Machine.");
