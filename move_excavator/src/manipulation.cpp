@@ -251,7 +251,7 @@ void Manipulation::updateLocalization()
   msg.position.x = x_goal_ - eePose_.position.x;
   msg.position.y = y_goal_ - eePose_.position.y;
   msg.position.z = z_goal_ - eePose_.position.z;
-  msg.orientation.x = mass_in_bucket_/100;
+  msg.orientation.x = mass_in_bucket_;
   msg.orientation.y = 0.0;
   msg.orientation.z = 0.0;
   msg.orientation.w = 0.0;
