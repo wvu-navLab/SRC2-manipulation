@@ -167,7 +167,7 @@ private:
 
   double relative_heading_;
 
-  const double LASER_THRESH = 0.2;
+  const double LASER_THRESH = 1.5;
   const int LASER_SET_SIZE = 20;
   const int LASER_COUNTER_THRESH = 20;
   int counter_laser_collision_;

@@ -96,7 +96,15 @@ void Manipulation::laserCallbackHauler(const sensor_msgs::LaserScan::ConstPtr &m
     counter_laser_collision_++;
   }
 
-  if (manipulation_enabled_ && counter_laser_collision_ > LASER_COUNTER_THRESH)
+  double dx = (posx_hauler_ - posx_);
+  double dy = (posy_hauler_ - posy_);
+  double dz = (posz_hauler_ - posz_);
+
+  double relative_range = sqrt(dx*dx + dy*dy + dz*dz);
+
+  relative_heading_ = atan2(dy,dx) - yaw_;
+
+  if (manipulation_enabled_ && (counter_laser_collision_ || relative_range < 4.0) > LASER_COUNTER_THRESH)
   {
     ROS_INFO_STREAM_THROTTLE(1,"HAULER: Counter laser: " << counter_laser_collision_);
     ROS_INFO_THROTTLE(5,"HAULER: In range for dropping.");
@@ -270,18 +278,7 @@ void Manipulation::updateLocalization()
 
 void Manipulation::getRelativePosition()
 {
-  double dx = (posx_hauler_ - posx_);
-  double dy = (posy_hauler_ - posy_);
-  double dz = (posz_hauler_ - posz_);
 
-  double relative_range = sqrt(dx*dx + dy*dy + dz*dz);
-  
-  if (relative_range > 5.0)
-  {
-    hauler_in_range_ = false;
-  }
-
-  relative_heading_ = atan2(dy,dx) - yaw_;
 
   // ROS_INFO_STREAM("Hauler odometry updated. Pose:" << msg->pose.pose);
   // ROS_INFO_STREAM("Range:" << relative_range);
