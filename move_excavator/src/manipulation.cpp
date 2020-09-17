@@ -484,7 +484,7 @@ int main(int argc, char **argv)
         case EXTEND_MODE:
           {
             manipulation.executeExtendArm(10);
-            // ros::Duration(10).sleep();
+            ros::Duration(5).sleep();
             // if(manipulation.isHaulerInRange_)
             // {
             //   manipulation.mode = DROP_MODE;
