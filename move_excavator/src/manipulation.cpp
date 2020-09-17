@@ -429,6 +429,7 @@ void Manipulation::outputManipulationStatus()
   msg.isFinished = true;
   msg.foundVolatile = found_volatile_;
   msg.collectedMass = mass_collected_;
+  msg.haulerInRange = hauler_in_range_;
   pubExcavationStatus.publish(msg);
   ROS_INFO("MANIPULATION: has finished. Publishing to State Machine.");
 }

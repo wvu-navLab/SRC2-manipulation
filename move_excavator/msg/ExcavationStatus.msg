@@ -3,3 +3,4 @@
 bool isFinished 
 bool foundVolatile 
 float64 collectedMass 
+bool haulerInRange 
