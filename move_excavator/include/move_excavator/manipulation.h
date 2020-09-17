@@ -22,6 +22,7 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <sensor_msgs/JointState.h>
+#include <sensor_msgs/LaserScan.h>
 #include <geometry_msgs/Pose.h>
 #include <nav_msgs/Odometry.h>
 
@@ -84,14 +85,15 @@ public:
   void goalCallback(const geometry_msgs::Pose::ConstPtr &msg);
   void manipulationStateCallback(const std_msgs::Int64::ConstPtr &msg);
   void haulerOdomCallback(const nav_msgs::Odometry::ConstPtr &msg);
+  void laserCallbackHauler(const sensor_msgs::LaserScan::ConstPtr &msg);
 
   // State-machine mode
   int mode = HOME_MODE;
 
   // Flags Init
-  bool isManipulationEnabled_ = false;
+  bool manipulation_enabled_ = false;
   bool isBucketFull_ = false;
-  bool isHaulerInRange_ = false;
+  bool hauler_in_range_ = false;
   bool found_volatile_ = false;
 
   ros::Time manipulation_start_time_ = ros::Time::now();
@@ -108,6 +110,7 @@ public:
   void executeExtendArm(double timeout);
   void executeDrop(double timeout);
   void outputManipulationStatus();
+  void getRelativePosition();
 
 private:
   // Node Handle
@@ -124,6 +127,7 @@ private:
   ros::Subscriber subBucketInfo;
   ros::Subscriber subGoalVolatile;
   ros::Subscriber subManipulationState;
+  ros::Subscriber subLaserScanHauler;
 
   // Clients
   ros::ServiceClient clientHomeArm;
@@ -162,6 +166,11 @@ private:
   double orientw_hauler_ = 0.0;
 
   double relative_heading_;
+
+  const double LASER_THRESH = 0.2;
+  const int LASER_SET_SIZE = 20;
+  const int LASER_COUNTER_THRESH = 20;
+  int counter_laser_collision_;
 
   // Joint Positions Init
   double q1_pos_ = 0.0;

@@ -52,13 +52,12 @@ void FindRover::laserCallback(const sensor_msgs::LaserScan::ConstPtr &msg)
   if(msg->ranges[closestIndex] < 0.8)
   {
     m.isRoverInRange = true;
-    pubMultiAgentState.publish(m);
   }
   else
   {
     m.isRoverInRange = false;
-    pubMultiAgentState.publish(m);
   }
+  pubMultiAgentState.publish(m);
 }
 
 void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msg)
