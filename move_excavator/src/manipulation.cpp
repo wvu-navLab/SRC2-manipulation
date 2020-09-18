@@ -104,7 +104,7 @@ void Manipulation::laserCallbackHauler(const sensor_msgs::LaserScan::ConstPtr &m
 
   relative_heading_ = atan2(dy,dx) - yaw_;
 
-  if (manipulation_enabled_ && (counter_laser_collision_ || relative_range < 4.0) > LASER_COUNTER_THRESH)
+  if (manipulation_enabled_ && (counter_laser_collision_> LASER_COUNTER_THRESH || relative_range < 4.0) )
   {
     ROS_INFO_STREAM_THROTTLE(1,"HAULER: Counter laser: " << counter_laser_collision_);
     ROS_INFO_THROTTLE(5,"HAULER: In range for dropping.");
@@ -416,7 +416,7 @@ void Manipulation::executeDrop(double timeout)
   srv.request.heading = relative_heading_;
   srv.request.timeLimit = timeout;
   srv.request.joints = q;
-  
+
   bool success = clientDropVolatile.call(srv);
 }
 
@@ -549,13 +549,13 @@ int main(int argc, char **argv)
         ROS_ERROR_STREAM("MANIPULATION: interrupted by timeout.");
       }
       else
-      { 
+      {
         manipulation.manipulation_enabled_ = false;
         manipulation.found_volatile_ = false;
         manipulation.scoop_counter_ = -1;
         ROS_ERROR_THROTTLE(30,"MANIPULATION: disabled.");
       }
-      
+
 
       ros::spinOnce();
       rate.sleep();
