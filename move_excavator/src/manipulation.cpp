@@ -19,18 +19,17 @@ Manipulation::Manipulation(ros::NodeHandle & nh)
 
   // Subscribers
   subOdometry = nh_.subscribe("localization/odometry/sensor_fusion", 10, &Manipulation::odometryCallback, this);
-  subHaulerOdom =  nh_.subscribe("/hauler_1/localization/odometry/sensor_fusion", 10, &Manipulation::haulerOdomCallback, this);
+  subHaulerOdom =  nh_.subscribe("/small_hauler_1/localization/odometry/sensor_fusion", 10, &Manipulation::haulerOdomCallback, this);
   subJointStates = nh_.subscribe("joint_states", 1, &Manipulation::jointStateCallback, this);
-  subBucketInfo = nh_.subscribe("bucket_info", 1, &Manipulation::bucketCallback, this);
+  subBucketInfo = nh_.subscribe("scoop_info", 1, &Manipulation::bucketCallback, this);
   subGoalVolatile = nh_.subscribe("manipulation/volatile_pose", 1, &Manipulation::goalCallback, this);
   subManipulationState =  nh_.subscribe("manipulation/state", 1, &Manipulation::manipulationStateCallback, this);
-  subLaserScanHauler = nh_.subscribe("/hauler_1/laser/scan", 1, &Manipulation::laserCallbackHauler, this);
+  subLaserScanHauler = nh_.subscribe("/small_hauler_1/laser/scan", 1, &Manipulation::laserCallbackHauler, this);
 
   // Service Clients
   clientFK = nh_.serviceClient<move_excavator::ExcavatorFK>("manipulation/excavator_fk");
-
   clientHomeArm = nh_.serviceClient<move_excavator::HomeArm>("manipulation/home_arm");
-  clientDigVolatile = nh_.serviceClient<move_excavator::DigVolatile>("manipulation/dig_volatile");
+  clientLowerArm = nh_.serviceClient<move_excavator::LowerArm>("manipulation/dig_volatile");
   clientScoop = nh_.serviceClient<move_excavator::Scoop>("manipulation/scoop");
   clientAfterScoop = nh_.serviceClient<move_excavator::AfterScoop>("manipulation/after_scoop");
   clientExtendArm = nh_.serviceClient<move_excavator::ExtendArm>("manipulation/extend_arm");
@@ -40,10 +39,36 @@ Manipulation::Manipulation(ros::NodeHandle & nh)
 void Manipulation::jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg)
 {
   // Find current angles and position
-  q1_pos_ = msg->position[15];  // TODO: Get ids from the message names
-  q2_pos_ = msg->position[0];
-  q3_pos_ = msg->position[8];
-  q4_pos_ = msg->position[7];
+  int shoulder_yaw_joint_idx;
+  int shoulder_pitch_joint_idx;
+  int elbow_pitch_joint_idx;
+  int wrist_pitch_joint_idx;
+  int spawning_zone_joint_idx;
+
+  // loop joint states
+  for (int i = 0; i < msg->name.size(); i++) {
+    if (msg->name[i] == "shoulder_yaw_joint_idx") {
+      shoulder_yaw_joint_idx = i;
+    }
+    if (msg->name[i] == "shoulder_pitch_joint_idx") {
+      shoulder_pitch_joint_idx = i;
+    }
+    if (msg->name[i] == "elbow_pitch_joint_idx") {
+      elbow_pitch_joint_idx = i;
+    }
+    if (msg->name[i] == "wrist_pitch_joint_idx") {
+      wrist_pitch_joint_idx = i;
+    }
+    if (msg->name[i] == "spawning_zone_joint_idx") {
+      spawning_zone_joint_idx = i;
+    }
+  }
+
+  q1_pos_ = msg->position[shoulder_yaw_joint_idx];  // TODO: Get ids from the message names
+  q2_pos_ = msg->position[shoulder_pitch_joint_idx];
+  q3_pos_ = msg->position[elbow_pitch_joint_idx];
+  q4_pos_ = msg->position[wrist_pitch_joint_idx];
+  q5_pos_ = msg->position[spawning_zone_joint_idx];
   // ROS_INFO("Joint states updated.");
   // ROS_INFO_STREAM("Values "<< q1_pos_<<" "<< q2_pos_<< " "<< q3_pos_<< " "<< q4_pos_);
 }
@@ -117,9 +142,12 @@ void Manipulation::laserCallbackHauler(const sensor_msgs::LaserScan::ConstPtr &m
   }
 }
 
-void Manipulation::bucketCallback(const srcp2_msgs::ExcavatorMsg::ConstPtr &msg)
+void Manipulation::bucketCallback(const srcp2_msgs::ExcavatorScoopMsg::ConstPtr &msg)
 {
-  mass_in_bucket_ = msg->mass_in_bucket;
+  mass_in_bucket_ = 0;
+
+  volatile_in_bucket_ = msg->volatile_clod_mass;
+  regolith_in_bucket = msg->regolith_clod_mass;
 
   if (mass_in_bucket_ != 0)
   {
@@ -227,7 +255,7 @@ void Manipulation::manipulationStateCallback(const std_msgs::Int64::ConstPtr &ms
 void Manipulation::getForwardKinematics()
 {
   move_excavator::ExcavatorFK srv;
-  motion_control::JointGroup q;
+  motion_control::ArmGroup q;
   q.q1 = q1_pos_;
   q.q2 = q2_pos_;
   q.q3 = q3_pos_;
@@ -289,7 +317,7 @@ void Manipulation::getRelativePosition()
 void Manipulation::executeHomeArm(double timeout)
 {
   move_excavator::HomeArm srv;
-  motion_control::JointGroup q;
+  motion_control::ArmGroup q;
   q.q1 = q1_pos_;
   q.q2 = q2_pos_;
   q.q3 = q3_pos_;
@@ -304,8 +332,8 @@ void Manipulation::executeHomeArm(double timeout)
 
 void Manipulation::executeDig(double timeout)
 {
-  move_excavator::DigVolatile srv;
-  motion_control::JointGroup q;
+  move_excavator::LowerArm srv;
+  motion_control::ArmGroup q;
   q.q1 = q1_pos_;
   q.q2 = q2_pos_;
   q.q3 = q3_pos_;
@@ -352,13 +380,13 @@ void Manipulation::executeDig(double timeout)
   srv.request.timeLimit = timeout;
   srv.request.joints = q;
 
-  bool success = clientDigVolatile.call(srv);
+  bool success = clientLowerArm.call(srv);
 }
 
 void Manipulation::executeScoop(double timeout)
 {
   move_excavator::Scoop srv;
-  motion_control::JointGroup q;
+  motion_control::ArmGroup q;
   q.q1 = q1_pos_;
   q.q2 = q2_pos_;
   q.q3 = q3_pos_;
@@ -374,7 +402,7 @@ void Manipulation::executeScoop(double timeout)
 void Manipulation::executeAfterScoop(double timeout)
 {
   move_excavator::AfterScoop srv;
-  motion_control::JointGroup q;
+  motion_control::ArmGroup q;
   q.q1 = q1_pos_;
   q.q2 = q2_pos_;
   q.q3 = q3_pos_;
@@ -391,7 +419,7 @@ void Manipulation::executeAfterScoop(double timeout)
 void Manipulation::executeExtendArm(double timeout)
 {
   move_excavator::ExtendArm srv;
-  motion_control::JointGroup q;
+  motion_control::ArmGroup q;
   q.q1 = q1_pos_;
   q.q2 = q2_pos_;
   q.q3 = q3_pos_;
@@ -407,7 +435,7 @@ void Manipulation::executeExtendArm(double timeout)
 void Manipulation::executeDrop(double timeout)
 {
   move_excavator::DropVolatile srv;
-  motion_control::JointGroup q;
+  motion_control::ArmGroup q;
   q.q1 = q1_pos_;
   q.q2 = q2_pos_;
   q.q3 = q3_pos_;

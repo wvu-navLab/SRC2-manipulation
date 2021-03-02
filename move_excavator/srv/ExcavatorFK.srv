@@ -1,3 +1,3 @@
-motion_control/JointGroup joints
+motion_control/ArmGroup joints
 ---
 geometry_msgs/Pose eePose

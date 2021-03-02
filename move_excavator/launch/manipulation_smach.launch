@@ -1,0 +1,19 @@
+<launch> 
+
+  <group ns="small_excavator_1">
+  
+    <!-- <node pkg="move_excavator"
+          name="find_rover"
+          type="find_rover"
+          output="screen">
+    </node> -->
+
+    <node pkg="move_excavator"
+          name="manipulation"
+          type="manipulation"
+          output="screen">
+    </node>
+
+  </group>
+
+</launch>

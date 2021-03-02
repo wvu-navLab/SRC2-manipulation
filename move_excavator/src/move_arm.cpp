@@ -14,49 +14,35 @@ MoveArm::MoveArm(ros::NodeHandle & nh)
 : nh_(nh)
 {
   // Node publishes individual joint positions
-  pubJointAngles = nh_.advertise<motion_control::JointGroup>("manipulation/arm_joint_angles", 1000);
+  pubJointAngles = nh_.advertise<motion_control::ArmGroup>("control/arm/joint_angles", 1);
 
   // Service Servers
   serverHomeArm = nh_.advertiseService("manipulation/home_arm", &MoveArm::HomeArm, this);
   serverExtendArm = nh_.advertiseService("manipulation/extend_arm", &MoveArm::ExtendArm, this);
   serverDropVolatile = nh_.advertiseService("manipulation/drop_volatile", &MoveArm::DropVolatile, this);
-  serverDigVolatile = nh_.advertiseService("manipulation/dig_volatile", &MoveArm::DigVolatile, this);
+  serverLowerArm = nh_.advertiseService("manipulation/lower_arm", &MoveArm::LowerArm, this);
   serverScoop = nh_.advertiseService("manipulation/scoop", &MoveArm::Scoop, this);
   serverAfterScoop = nh_.advertiseService("manipulation/after_scoop", &MoveArm::AfterScoop, this);
   serverFK = nh_.advertiseService("manipulation/excavator_fk", &MoveArm::ExcavatorFK, this);
 
   // Link lengths
-  h0 = 0.3556;
+  a0 = 0.70;
+  d0 = 0.10;
 
-  l1 = 0.1128;
-  h1 = 0.0100;
-  d1 = sqrt(l1*l1 + h1*h1);
+  a1 = 0.19;
+  d1 = 0.12;
 
-  l2 = 1.5644;
-  h2 = 0.9644;
-  a2 = sqrt(l2*l2 + h2*h2);
+  a2 = 0.80;
 
-  l3 = 0.7394;
-  h3 = 0.5356;
-  a3 = sqrt(l3*l3 + h3*h3);
+  a3 = 0.80;
 
-  l4 = 0.2500;
-  h4 = 0.2855;
-  a4 = sqrt(l4*l4 + h4*h4);
-
-  th2 = atan2(h2,l2);
-  th3 = atan2(l3,h3);
-  th4 = atan2(h4,l4);
-
-  th2_star = -th2;
-  th3_star = th2-th3+PI/2;
-  th4_star = th3-th4-PI/2;
+  a4 = 0.33/2;
 
   // Denavit-Hartenberg Table
-  a_DH << 0, 0, -a2, -a3, -a4;
-  alpha_DH << 0, PI/2, 0, 0, 0;
-  d_DH << h0, d1, 0, 0, 0;
-  theta_DH << PI, q1_goal, q2_goal+th2_star, q3_goal+th3_star, q4_goal+th4_star;
+  a_DH << -a0, -a1, -a2, -a3, -a4;
+  alpha_DH << 0, -PI/2, 0, 0, 0;
+  d_DH << d0, d1, 0, 0, 0;
+  theta_DH << 0, 0, 0, 0, 0;
 }
 
 /*--------------------------------------------------------------------
@@ -125,7 +111,7 @@ bool MoveArm::HomeArm(move_excavator::HomeArm::Request  &req, move_excavator::Ho
   q.q1 = q1;
   q.q2 = JOINT2_MIN;
   q.q3 = JOINT3_MAX/2;
-  q.q4 = JOINT4_MAX;
+  q.q4 = 0;
   // ROS_INFO_STREAM("Publishing joint angles (part 1):");
   // std::cout << q << std::endl;
   pubJointAngles.publish(q);
@@ -134,7 +120,7 @@ bool MoveArm::HomeArm(move_excavator::HomeArm::Request  &req, move_excavator::Ho
   q.q1 = heading_goal;
   q.q2 = JOINT2_MIN;
   q.q3 = JOINT3_MAX;
-  q.q4 = JOINT4_MAX;
+  q.q4 = 0;
   // ROS_INFO_STREAM("Publishing joint angles (part 2):");
   // std::cout << q << std::endl;
   pubJointAngles.publish(q);
@@ -155,17 +141,17 @@ bool MoveArm::ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator
   ROS_INFO_STREAM("EXTEND ARM.");
   q.q1 = q1;
   q.q2 = JOINT2_MIN*2/3;
-  q.q3 = 0; //JOINT3_MIN;
-  q.q4 = JOINT4_MAX;
+  q.q3 = PI/2;
+  q.q4 = PI/2+JOINT2_MIN;
   // ROS_INFO_STREAM("Publishing joint angles (part 1):");
   // std::cout << q << std::endl;
   pubJointAngles.publish(q);
   ros::Duration(timeout/2).sleep();
 
   q.q1 = heading_goal;
-  q.q2 = JOINT2_MIN*2/3;
-  q.q3 = 0; //JOINT3_MIN;
-  q.q4 = JOINT4_MAX;
+  q.q2 = JOINT2_MIN;
+  q.q3 = PI/2;
+  q.q4 = PI/2+JOINT2_MIN;
   // ROS_INFO_STREAM("Publishing joint angles (part 2):");
   // std::cout << q << std::endl;
   pubJointAngles.publish(q);
@@ -205,7 +191,7 @@ bool MoveArm::DropVolatile(move_excavator::DropVolatile::Request  &req, move_exc
   return true;
 }
 
-bool MoveArm::DigVolatile(move_excavator::DigVolatile::Request  &req, move_excavator::DigVolatile::Response &res)
+bool MoveArm::LowerArm(move_excavator::LowerArm::Request  &req, move_excavator::LowerArm::Response &res)
 {
   double heading_goal = req.heading;
   double timeout = req.timeLimit;
@@ -248,8 +234,8 @@ bool MoveArm::Scoop(move_excavator::Scoop::Request  &req, move_excavator::Scoop:
   ROS_INFO_STREAM("SCOOP VOLATILE.");
   q.q1 = heading_goal;
   q.q2 = JOINT2_MAX*2/3;
-  q.q3 = JOINT3_MAX/2;
-  q.q4 = JOINT4_MAX;
+  q.q3 = 0;
+  q.q4 = JOINT4_MIN;
   // ROS_INFO_STREAM("Publishing joint angles :");
   // std::cout << q << std::endl;
   pubJointAngles.publish(q);
@@ -268,9 +254,9 @@ bool MoveArm::AfterScoop(move_excavator::AfterScoop::Request  &req, move_excavat
   
   ROS_INFO_STREAM("AFTER SCOOP.");
   q.q1 = heading_goal;
-  q.q2 = JOINT2_MAX*1/3;
-  q.q3 = JOINT3_MAX/2;
-  q.q4 = JOINT4_MAX;
+  q.q2 = 0;
+  q.q3 = PI/2;
+  q.q4 = -PI/2;
   // ROS_INFO_STREAM("Publishing joint angles :");
   // std::cout << q << std::endl;
   pubJointAngles.publish(q);
@@ -297,7 +283,7 @@ geometry_msgs::Pose MoveArm::calculateFK(double q1, double q2, double q3, double
 {
   ROS_INFO_STREAM("FORWARD KINEMATICS.");
 
-  theta_DH << PI, q1, q2 + th2_star, q3 + th3_star, q4 + th4_star;
+  theta_DH << 0, q1, q2, q3, q4;
   int N = theta_DH.size();
   Eigen::MatrixXd Ai(4,4);
   Eigen::MatrixXd T0Ti(4,4);
@@ -311,7 +297,7 @@ geometry_msgs::Pose MoveArm::calculateFK(double q1, double q2, double q3, double
       else
       {
           T0Ti = T0Ti*Ai;
-          // ROS_INFO_STREAM("Transformation"<<T0Ti);
+          ROS_INFO_STREAM("Transformation"<<T0Ti);
       }
   }
   T0Tn = T0Ti;

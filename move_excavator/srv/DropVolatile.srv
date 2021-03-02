@@ -1,5 +1,5 @@
 float64 heading
 float64 timeLimit
-motion_control/JointGroup joints
+motion_control/ArmGroup joints
 ---
 bool success

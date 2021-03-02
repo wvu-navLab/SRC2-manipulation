@@ -18,7 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   message_filters
   tf2_ros
-  srcp2_msgs
+  # srcp2_msgs
   driving_tools
 )
 
@@ -68,7 +68,7 @@ add_service_files(
   HomeArm.srv
   ExtendArm.srv
   DropVolatile.srv
-  DigVolatile.srv
+  LowerArm.srv
   Scoop.srv
   AfterScoop.srv
   ExcavatorFK.srv
@@ -135,7 +135,7 @@ catkin_package(
 ## Your package locations should be listed before other locations
 include_directories(
   include
-  ~/srcp2-competitors/ros_workspace/install/include
+  ~/ros_workspace/install/include
   ${catkin_INCLUDE_DIRS}
 )
 
@@ -182,11 +182,17 @@ add_dependencies(find_rover move_excavator_generate_messages_cpp)
 #   ${catkin_LIBRARIES}
 # )
 
+target_link_libraries(manipulation
+  ${catkin_LIBRARIES}
+)
 
 target_link_libraries(move_arm
   ${catkin_LIBRARIES}
 )
 
+target_link_libraries(find_rover
+  ${catkin_LIBRARIES}
+)
 #############
 ## Install ##
 #############

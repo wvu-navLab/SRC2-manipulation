@@ -27,9 +27,9 @@
 #include <nav_msgs/Odometry.h>
 
 // Custom message includes. Auto-generated from msg/ directory.
-#include <srcp2_msgs/ExcavatorMsg.h>
+#include <srcp2_msgs/ExcavatorScoopMsg.h>
 
-#include <motion_control/JointGroup.h>
+#include <motion_control/ArmGroup.h>
 #include <move_excavator/MultiAgentState.h>
 #include <move_excavator/ExcavationStatus.h>
 
@@ -38,7 +38,7 @@
 #include <driving_tools/MoveForward.h>
 
 #include <move_excavator/HomeArm.h>
-#include <move_excavator/DigVolatile.h>
+#include <move_excavator/LowerArm.h>
 #include <move_excavator/Scoop.h>
 #include <move_excavator/AfterScoop.h>
 #include <move_excavator/ExtendArm.h>
@@ -79,7 +79,7 @@ public:
   // Callback function for subscriber
   void jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg);
   void odometryCallback(const nav_msgs::Odometry::ConstPtr &msg);
-  void bucketCallback(const srcp2_msgs::ExcavatorMsg::ConstPtr &msg);
+  void bucketCallback(const srcp2_msgs::ExcavatorScoopMsg::ConstPtr &msg);
 
   // Callback function for subscriber.
   void goalCallback(const geometry_msgs::Pose::ConstPtr &msg);
@@ -132,7 +132,7 @@ private:
   // Clients
   ros::ServiceClient clientHomeArm;
   ros::ServiceClient clientExtendArm;
-  ros::ServiceClient clientDigVolatile;
+  ros::ServiceClient clientLowerArm;
   ros::ServiceClient clientScoop;
   ros::ServiceClient clientAfterScoop;
   ros::ServiceClient clientDropVolatile;
@@ -177,9 +177,12 @@ private:
   double q2_pos_ = 0.0;
   double q3_pos_ = 0.0;
   double q4_pos_ = 0.0;
+  double q5_pos_ = 0.0;
 
   // Bucket Info Init
   double mass_in_bucket_ = 0.0;
+  bool volatile_in_bucket_ = false;
+  bool regolith_in_bucket = false;
 
   // Goal Volatile Pos Init
   double x_goal_ = 0.0;
