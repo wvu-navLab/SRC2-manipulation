@@ -129,68 +129,6 @@ bool MoveArm::HomeArm(move_excavator::HomeArm::Request  &req, move_excavator::Ho
   return true;
 }
 
-bool MoveArm::ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator::ExtendArm::Response &res)
-{
-  double heading_goal = req.heading;
-  double timeout = req.timeLimit;
-  double q1 = req.joints.q1;
-  double q2 = req.joints.q2;
-  double q3 = req.joints.q3;
-  double q4 = req.joints.q4;
-
-  ROS_INFO_STREAM("EXTEND ARM.");
-  q.q1 = q1;
-  q.q2 = JOINT2_MIN*2/3;
-  q.q3 = PI/2;
-  q.q4 = PI/2+JOINT2_MIN;
-  // ROS_INFO_STREAM("Publishing joint angles (part 1):");
-  // std::cout << q << std::endl;
-  pubJointAngles.publish(q);
-  ros::Duration(timeout/2).sleep();
-
-  q.q1 = heading_goal;
-  q.q2 = JOINT2_MIN;
-  q.q3 = PI/2;
-  q.q4 = PI/2+JOINT2_MIN;
-  // ROS_INFO_STREAM("Publishing joint angles (part 2):");
-  // std::cout << q << std::endl;
-  pubJointAngles.publish(q);
-  ros::Duration(timeout/2).sleep();
-
-  return true;
-}
-
-bool MoveArm::DropVolatile(move_excavator::DropVolatile::Request  &req, move_excavator::DropVolatile::Response &res)
-{
-  double heading_goal = req.heading;
-  double timeout = req.timeLimit;
-  double q1 = req.joints.q1;
-  double q2 = req.joints.q2;
-  double q3 = req.joints.q3;
-  double q4 = req.joints.q4;
-
-  ROS_INFO_STREAM("DROP VOLATILE.");
-  q.q1 = heading_goal;
-  q.q2 = JOINT2_MIN*1/3;
-  q.q3 = JOINT3_MIN;
-  q.q4 = JOINT4_MAX/2;
-  // ROS_INFO_STREAM("Publishing joint angles (part 1):");
-  // std::cout << q << std::endl;
-  pubJointAngles.publish(q);
-  ros::Duration(timeout*3/4).sleep();
-
-  q.q1 = heading_goal;
-  q.q2 = JOINT2_MIN*3/4;
-  q.q3 = JOINT3_MIN;
-  q.q4 = JOINT4_MAX/2;
-  // ROS_INFO_STREAM("Publishing joint angles (part 2):");
-  // std::cout << q << std::endl;
-  pubJointAngles.publish(q);
-  ros::Duration(timeout*1/4).sleep();
-
-  return true;
-}
-
 bool MoveArm::LowerArm(move_excavator::LowerArm::Request  &req, move_excavator::LowerArm::Response &res)
 {
   double heading_goal = req.heading;
@@ -201,24 +139,16 @@ bool MoveArm::LowerArm(move_excavator::LowerArm::Request  &req, move_excavator::
   double q4 = req.joints.q4;
 
   ROS_INFO_STREAM("DIG VOLATILE.");
-  q.q1 = heading_goal;
-  q.q2 = JOINT2_MAX*1/3;
-  q.q3 = 0;
-  q.q4 = JOINT4_MAX/4;
-  // ROS_INFO_STREAM("Publishing joint angles (part 1):");
-  // std::cout << q << std::endl;
-  pubJointAngles.publish(q);
-  ros::Duration(timeout/2).sleep();
 
-  q.q1 = heading_goal;
-  q.q2 = JOINT2_MAX*2/3;
-  q.q3 = JOINT3_MAX/3;
-  q.q4 = JOINT4_MAX/2;
-  // ROS_INFO_STREAM("Publishing joint angles (part 2):");
-  // std::cout << q << std::endl;
-  pubJointAngles.publish(q);
-  ros::Duration(timeout/2).sleep();
-
+  for (int i = 0; i<101; i++) 
+  {
+    q.q1 = 0;
+    q.q2 = 0;
+    q.q3 = PI/2;
+    q.q4 = -PI/2; // + PITCH
+    pubJointAngles.publish(q);
+    ros::Duration(timeout/100).sleep();
+  }
   return true;
 }
 
@@ -232,13 +162,16 @@ bool MoveArm::Scoop(move_excavator::Scoop::Request  &req, move_excavator::Scoop:
   double q4 = req.joints.q4;
   
   ROS_INFO_STREAM("SCOOP VOLATILE.");
-  q.q1 = heading_goal;
-  q.q2 = JOINT2_MAX*2/3;
-  q.q3 = 0;
-  q.q4 = JOINT4_MIN;
-  // ROS_INFO_STREAM("Publishing joint angles :");
-  // std::cout << q << std::endl;
-  pubJointAngles.publish(q);
+
+  for (int i = 0; i<101; i++) 
+  {
+    q.q1 = 0;
+    q.q2 = i*JOINT2_MAX/100;
+    q.q3 = PI/2-i*JOINT2_MAX/100;
+    q.q4 = -PI/2; // + PITCH
+    pubJointAngles.publish(q);
+    ros::Duration(timeout/100).sleep();
+  }
 
   return true;
 }
@@ -253,14 +186,65 @@ bool MoveArm::AfterScoop(move_excavator::AfterScoop::Request  &req, move_excavat
   double q4 = req.joints.q4;
   
   ROS_INFO_STREAM("AFTER SCOOP.");
-  q.q1 = heading_goal;
-  q.q2 = 0;
-  q.q3 = PI/2;
-  q.q4 = -PI/2;
-  // ROS_INFO_STREAM("Publishing joint angles :");
-  // std::cout << q << std::endl;
-  pubJointAngles.publish(q);
-  ros::Duration(timeout).sleep();
+
+  for (int i = 0; i<101; i++) 
+  {
+    q.q1 = 0;
+    q.q2 = i*JOINT2_MIN/100;
+    q.q3 = PI/2-i*JOINT2_MIN/100;
+    q.q4 = -PI/2; // + PITCH
+    pubJointAngles.publish(q);
+    ros::Duration(timeout/100).sleep();
+  }
+
+  return true;
+}
+
+bool MoveArm::ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator::ExtendArm::Response &res)
+{
+  double heading_goal = req.heading;
+  double timeout = req.timeLimit;
+  double q1 = req.joints.q1;
+  double q2 = req.joints.q2;
+  double q3 = req.joints.q3;
+  double q4 = req.joints.q4;
+
+  ROS_INFO_STREAM("EXTEND ARM.");
+
+  for (int i = 0; i<101; i++) 
+  {
+    std::cout << i*heading_goal/100 << "and "<< (double) i*heading_goal/100<< std::endl;
+    q.q1 = i*heading_goal/100;
+    q.q2 = JOINT2_MIN;
+    q.q3 = JOINT3_MAX-i*(PI/2)/100;
+    q.q4 = -PI/2+i*(PI/2)/100; // + PITCH
+    pubJointAngles.publish(q);
+    ros::Duration(timeout/100).sleep();
+  }
+
+  return true;
+}
+
+bool MoveArm::DropVolatile(move_excavator::DropVolatile::Request  &req, move_excavator::DropVolatile::Response &res)
+{
+  double heading_goal = req.heading;
+  double timeout = req.timeLimit;
+  double q1 = req.joints.q1;
+  double q2 = req.joints.q2;
+  double q3 = req.joints.q3;
+  double q4 = req.joints.q4;
+
+  ROS_INFO_STREAM("DROP VOLATILE.");
+
+  for (int i = 0; i<101; i++) 
+  {
+    q.q1 = heading_goal;
+    q.q2 = JOINT2_MIN;
+    q.q3 = JOINT3_MAX-PI/2;
+    q.q4 = i*(PI/2)/100; // + PITCH
+    pubJointAngles.publish(q);
+    ros::Duration(timeout/100).sleep();
+  }
 
   return true;
 }
