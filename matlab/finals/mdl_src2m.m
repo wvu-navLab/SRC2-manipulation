@@ -45,7 +45,7 @@ function r = mdl_src2m()
     deg = pi/180;
     
     % robot length values (metres)
-    a = [0, 0.8, 0.8, 0.165]';
+    a = [0.19, 0.8, 0.8, 0.165]';
 
     d = [0.12, 0, 0, 0]';
 
@@ -84,7 +84,7 @@ function r = mdl_src2m()
         r = robot;
     elseif nargin == 0
         assignin('caller', 'src2m', robot);
-        assignin('caller', 'qz', [0 0 0 0 0]); % zero angles
-        assignin('caller', 'qr', [0 0 0 0 0]*deg); % vertical pose as per Fig 2
+        assignin('caller', 'qz', [0 0 0 0]); % zero angles
+        assignin('caller', 'qr', [0 0 0 0]*deg); % vertical pose as per Fig 2
     end
 end

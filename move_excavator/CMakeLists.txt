@@ -163,9 +163,9 @@ add_executable(move_arm src/move_arm.cpp)
 target_link_libraries(move_arm ${catkin_LIBRARIES})
 add_dependencies(move_arm move_excavator_generate_messages_cpp)
 
-add_executable(find_rover src/find_rover.cpp)
-target_link_libraries(find_rover ${catkin_LIBRARIES} ${OpenCV_LIBS} )
-add_dependencies(find_rover move_excavator_generate_messages_cpp)
+# add_executable(find_rover src/find_rover.cpp)
+# target_link_libraries(find_rover ${catkin_LIBRARIES} ${OpenCV_LIBS} )
+# add_dependencies(find_rover move_excavator_generate_messages_cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -190,9 +190,9 @@ target_link_libraries(move_arm
   ${catkin_LIBRARIES}
 )
 
-target_link_libraries(find_rover
-  ${catkin_LIBRARIES}
-)
+# target_link_libraries(find_rover
+#   ${catkin_LIBRARIES}
+# )
 #############
 ## Install ##
 #############

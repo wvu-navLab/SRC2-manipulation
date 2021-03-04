@@ -63,7 +63,7 @@
 
 #define STOP -1
 #define HOME_MODE 0
-#define DIG_MODE 1
+#define LOWER_MODE 1
 #define SCOOP_MODE 2
 #define EXTEND_MODE 3
 #define DROP_MODE 4
@@ -98,13 +98,8 @@ public:
 
   ros::Time manipulation_start_time_ = ros::Time::now();
 
-  // Bucket Info Init
-  int scoop_counter_ = 0;
-  double mass_collected_ = 0.0;
-  double remaining_mass_thres_ = 0.1;
-
   void executeHomeArm(double timeout);
-  void executeDig(double timeout);
+  void executeLowerArm(double timeout);
   void executeScoop(double timeout);
   void executeAfterScoop(double timeout);
   void executeExtendArm(double timeout);
@@ -118,16 +113,15 @@ private:
 
   // Publisher
   ros::Publisher pubExcavationStatus;
-  ros::Publisher pubMeasurementUpdate;
 
   // Subscriber
-  ros::Subscriber subOdometry;
-  ros::Subscriber subHaulerOdom;
+  // ros::Subscriber subOdometry;
+  // ros::Subscriber subHaulerOdom;
+  // ros::Subscriber subLaserScanHauler;
   ros::Subscriber subJointStates;
   ros::Subscriber subBucketInfo;
   ros::Subscriber subGoalVolatile;
   ros::Subscriber subManipulationState;
-  ros::Subscriber subLaserScanHauler;
 
   // Clients
   ros::ServiceClient clientHomeArm;
@@ -136,7 +130,6 @@ private:
   ros::ServiceClient clientScoop;
   ros::ServiceClient clientAfterScoop;
   ros::ServiceClient clientDropVolatile;
-
   ros::ServiceClient clientFK;
 
   // End-effector Pose Init
@@ -155,7 +148,6 @@ private:
   double pitch_ = 0.0;
   double yaw_ = 0.0;
 
-
   // Hauler Pose Init
   double posx_hauler_ = 0.0;
   double posy_hauler_ = 0.0;
@@ -167,20 +159,13 @@ private:
 
   double relative_heading_;
 
-  const double LASER_THRESH = 1.5;
-  const int LASER_SET_SIZE = 20;
-  const int LASER_COUNTER_THRESH = 20;
-  int counter_laser_collision_;
-
   // Joint Positions Init
   double q1_pos_ = 0.0;
   double q2_pos_ = 0.0;
   double q3_pos_ = 0.0;
   double q4_pos_ = 0.0;
-  double q5_pos_ = 0.0;
 
   // Bucket Info Init
-  double mass_in_bucket_ = 0.0;
   bool volatile_in_bucket_ = false;
   bool regolith_in_bucket = false;
 
@@ -194,13 +179,7 @@ private:
   double orientw_goal_ = 0.0;
 
   Eigen::VectorXd pos_goal_ = Eigen::VectorXd::Zero(3);
-
-  int optimization_counter_ = 0;
-  double volatile_heading_;
-  std::vector<double> heading_options_{0.0, M_PI/12, -M_PI/12, M_PI/6, -M_PI/6};
-  std::vector<double> optimization_options_{M_PI/24, -M_PI/24};
-  std::vector<double> mass_optimization_{0.0, 0.0, 0.0};
-
+  double volatile_heading_ = 0;
 
   void getForwardKinematics();
   void updateLocalization();

@@ -94,6 +94,52 @@ Eigen::MatrixXd MoveArm::transl(double x, double y, double z)
 }
 
 /*--------------------------------------------------------------------
+ * -------------------- GEOMETRY CALC TOOLS --------------------------
+ *------------------------------------------------------------------*/
+
+Eigen::MatrixXd jtraj(Eigen::VectorXd q0, Eigen::VectorXd q1, int steps)
+{ 
+  int n_joints = q0.size();
+  int time_scale = 1;
+  Eigen::VectorXd time = Eigen::VectorXd::Zero(steps);
+
+  for (int i=0; i < steps; i++)
+  {
+    time(i) = i/(steps-1); // normalized time from 0 -> 1
+  }
+
+  // Compute the polynomial coefficients
+  Eigen::MatrixXd poly_coeffs = Eigen::VectorXd::Zero(n_joints,steps);
+  for (int i = 0; i < n_joints; i++)
+  {
+    poly_coeffs(i,0) = 6*(q1(i) - q0(i));
+    poly_coeffs(i,1) = -15*(q1(i) - q0(i));
+    poly_coeffs(i,2) = 10*(q1(i) - q0(i));
+    poly_coeffs(i,3) = 0; 
+    poly_coeffs(i,4) = 0;
+    poly_coeffs(i,5) = q0(i);
+  }
+
+  // Compute the coordinates
+  Eigen::MatrixXd time_matrix = Eigen::VectorXd::Zero(n_joints,steps);
+  for (int i = 0; i < n_joints; i++)
+  {
+    time_matrix(i,0) = pow(time(i),5);
+    time_matrix(i,1) = pow(time(i),4);
+    time_matrix(i,2) = pow(time(i),3);
+    time_matrix(i,3) = pow(time(i),2); 
+    time_matrix(i,4) = time(i);
+    time_matrix(i,5) = 1;
+  }
+  
+  Eigen::MatrixXd traj = Eigen::VectorXd::Zero(steps,n_joints);
+
+  traj = time_matrix * poly_coeffs.transpose();
+
+  return traj;
+}
+
+/*--------------------------------------------------------------------
  * ------------ PRECOMPUTED CONFIGURATIONS SERVICES ------------------
  *------------------------------------------------------------------*/
 
@@ -213,14 +259,24 @@ bool MoveArm::ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator
 
   for (int i = 0; i<101; i++) 
   {
-    std::cout << i*heading_goal/100 << "and "<< (double) i*heading_goal/100<< std::endl;
-    q.q1 = i*heading_goal/100;
+    q.q1 = 0;
     q.q2 = JOINT2_MIN;
     q.q3 = JOINT3_MAX-i*(PI/2)/100;
     q.q4 = -PI/2+i*(PI/2)/100; // + PITCH
     pubJointAngles.publish(q);
     ros::Duration(timeout/100).sleep();
   }
+
+ for (int i = 0; i<101; i++) 
+  {
+    q.q1 = i*heading_goal/100;
+    q.q2 = JOINT2_MIN;
+    q.q3 = JOINT3_MAX-(PI/2);
+    q.q4 = -PI/2+(PI/2); // + PITCH
+    pubJointAngles.publish(q);
+    ros::Duration(timeout/100).sleep();
+  }
+
 
   return true;
 }

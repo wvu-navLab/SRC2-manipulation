@@ -15,21 +15,20 @@ Manipulation::Manipulation(ros::NodeHandle & nh)
 {
   // Publishers
   pubExcavationStatus = nh_.advertise<move_excavator::ExcavationStatus>("manipulation/feedback", 10);
-  pubMeasurementUpdate = nh_.advertise<geometry_msgs::Pose>("position_update", 1);
 
   // Subscribers
-  subOdometry = nh_.subscribe("localization/odometry/sensor_fusion", 10, &Manipulation::odometryCallback, this);
-  subHaulerOdom =  nh_.subscribe("/small_hauler_1/localization/odometry/sensor_fusion", 10, &Manipulation::haulerOdomCallback, this);
+  // subOdometry = nh_.subscribe("localization/odometry/sensor_fusion", 10, &Manipulation::odometryCallback, this);
+  // subHaulerOdom =  nh_.subscribe("/small_hauler_1/localization/odometry/sensor_fusion", 10, &Manipulation::haulerOdomCallback, this);
   subJointStates = nh_.subscribe("joint_states", 1, &Manipulation::jointStateCallback, this);
   subBucketInfo = nh_.subscribe("scoop_info", 1, &Manipulation::bucketCallback, this);
   subGoalVolatile = nh_.subscribe("manipulation/volatile_pose", 1, &Manipulation::goalCallback, this);
   subManipulationState =  nh_.subscribe("manipulation/state", 1, &Manipulation::manipulationStateCallback, this);
-  subLaserScanHauler = nh_.subscribe("/small_hauler_1/laser/scan", 1, &Manipulation::laserCallbackHauler, this);
+  // subLaserScanHauler = nh_.subscribe("/small_hauler_1/laser/scan", 1, &Manipulation::laserCallbackHauler, this);
 
   // Service Clients
   clientFK = nh_.serviceClient<move_excavator::ExcavatorFK>("manipulation/excavator_fk");
   clientHomeArm = nh_.serviceClient<move_excavator::HomeArm>("manipulation/home_arm");
-  clientLowerArm = nh_.serviceClient<move_excavator::LowerArm>("manipulation/dig_volatile");
+  clientLowerArm = nh_.serviceClient<move_excavator::LowerArm>("manipulation/lower_arm");
   clientScoop = nh_.serviceClient<move_excavator::Scoop>("manipulation/scoop");
   clientAfterScoop = nh_.serviceClient<move_excavator::AfterScoop>("manipulation/after_scoop");
   clientExtendArm = nh_.serviceClient<move_excavator::ExtendArm>("manipulation/extend_arm");
@@ -47,20 +46,17 @@ void Manipulation::jointStateCallback(const sensor_msgs::JointState::ConstPtr &m
 
   // loop joint states
   for (int i = 0; i < msg->name.size(); i++) {
-    if (msg->name[i] == "shoulder_yaw_joint_idx") {
+    if (msg->name[i] == "shoulder_yaw_joint") {
       shoulder_yaw_joint_idx = i;
     }
-    if (msg->name[i] == "shoulder_pitch_joint_idx") {
+    if (msg->name[i] == "shoulder_pitch_joint") {
       shoulder_pitch_joint_idx = i;
     }
-    if (msg->name[i] == "elbow_pitch_joint_idx") {
+    if (msg->name[i] == "elbow_pitch_joint") {
       elbow_pitch_joint_idx = i;
     }
-    if (msg->name[i] == "wrist_pitch_joint_idx") {
+    if (msg->name[i] == "wrist_pitch_joint") {
       wrist_pitch_joint_idx = i;
-    }
-    if (msg->name[i] == "spawning_zone_joint_idx") {
-      spawning_zone_joint_idx = i;
     }
   }
 
@@ -68,111 +64,12 @@ void Manipulation::jointStateCallback(const sensor_msgs::JointState::ConstPtr &m
   q2_pos_ = msg->position[shoulder_pitch_joint_idx];
   q3_pos_ = msg->position[elbow_pitch_joint_idx];
   q4_pos_ = msg->position[wrist_pitch_joint_idx];
-  q5_pos_ = msg->position[spawning_zone_joint_idx];
-  // ROS_INFO("Joint states updated.");
-  // ROS_INFO_STREAM("Values "<< q1_pos_<<" "<< q2_pos_<< " "<< q3_pos_<< " "<< q4_pos_);
-}
-
-void Manipulation::odometryCallback(const nav_msgs::Odometry::ConstPtr &msg)
-{
-  // Find current angles and position
-  posx_ = msg->pose.pose.position.x;
-  posy_ = msg->pose.pose.position.y;
-  posz_ = msg->pose.pose.position.z;
-  orientx_ = msg->pose.pose.orientation.x;
-  orienty_ = msg->pose.pose.orientation.y;
-  orientz_ = msg->pose.pose.orientation.z;
-  orientw_ = msg->pose.pose.orientation.w;
-
-  tf2::Quaternion quat(orientx_, orienty_, orientz_, orientw_); //or_x,or_y,or_z, and or_w are orientation message from nav_msg
-  tf2::Matrix3x3 rover_rot_matrix_(quat); // q is your quaternion message, dont take just q, but normalize it with q.normalize()
-  rover_rot_matrix_.getRPY(roll_, pitch_, yaw_); //get your roll pitch yaw from the quaternion message.
-
-  // ROS_INFO_STREAM("Excavator odometry updated. Pose:" << msg->pose.pose);
-}
-
-void Manipulation::haulerOdomCallback(const nav_msgs::Odometry::ConstPtr &msg)
-{
-  // Find current angles and position
-  posx_hauler_ = msg->pose.pose.position.x;
-  posy_hauler_ = msg->pose.pose.position.y;
-  posz_hauler_ = msg->pose.pose.position.z;
-  orientx_hauler_ = msg->pose.pose.orientation.x;
-  orienty_hauler_ = msg->pose.pose.orientation.y;
-  orientz_hauler_ = msg->pose.pose.orientation.z;
-  orientw_hauler_ = msg->pose.pose.orientation.w;
-}
-
-void Manipulation::laserCallbackHauler(const sensor_msgs::LaserScan::ConstPtr &msg)
-{
-  std::vector<float> ranges = msg->ranges;
-  std::sort (ranges.begin(), ranges.end());
-  float min_range = 0;
-  for (int i = 0; i < LASER_SET_SIZE; ++i)
-  {
-    min_range = min_range + ranges[i];
-  }
-  min_range = min_range/LASER_SET_SIZE;
-  ROS_INFO_STREAM_THROTTLE(10,"HAULER: Minimum range average: " << min_range);
-
-  if (min_range < LASER_THRESH)
-  {
-    ROS_INFO_THROTTLE(5,"HAULER: Close to excavator.");
-    counter_laser_collision_++;
-  }
-
-  double dx = (posx_hauler_ - posx_);
-  double dy = (posy_hauler_ - posy_);
-  double dz = (posz_hauler_ - posz_);
-
-  double relative_range = sqrt(dx*dx + dy*dy + dz*dz);
-
-  relative_heading_ = atan2(dy,dx) - yaw_;
-
-  if (manipulation_enabled_ && (counter_laser_collision_> LASER_COUNTER_THRESH || relative_range < 4.0) )
-  {
-    ROS_INFO_STREAM_THROTTLE(1,"HAULER: Counter laser: " << counter_laser_collision_);
-    ROS_INFO_THROTTLE(5,"HAULER: In range for dropping.");
-    hauler_in_range_ = true;
-  }
-  else
-  {
-    ROS_WARN_THROTTLE(5,"HAULER: Not in range for dropping yet.");
-    hauler_in_range_ = false;
-  }
 }
 
 void Manipulation::bucketCallback(const srcp2_msgs::ExcavatorScoopMsg::ConstPtr &msg)
 {
-  mass_in_bucket_ = 0;
-
-  volatile_in_bucket_ = msg->volatile_clod_mass;
-  regolith_in_bucket = msg->regolith_clod_mass;
-
-  if (mass_in_bucket_ != 0)
-  {
-    if (!isBucketFull_)
-    {
-      mass_collected_ = mass_in_bucket_ + mass_collected_;
-      ROS_INFO_STREAM("Total mass collected: " << mass_collected_);
-      getForwardKinematics();
-      updateLocalization();
-      found_volatile_ = true;
-      if (optimization_counter_<3)
-      {
-        ROS_INFO_STREAM("A Pokemon is on the hook! Mass: " << mass_in_bucket_);
-        mass_optimization_[optimization_counter_] = mass_in_bucket_;
-        // ROS_INFO_STREAM("Mass optimization first dig: " << mass_optimization_[0]);
-        // ROS_INFO_STREAM("Mass optimization second dig: " << mass_optimization_[1]);
-        // ROS_INFO_STREAM("Mass optimization third dig: " << mass_optimization_[2]);
-      }
-    }
-    isBucketFull_ = true;
-  }
-  else
-  {
-    isBucketFull_ = false;
-  }
+  isBucketFull_ = msg->volatile_clod_mass || msg->regolith_clod_mass;
+  found_volatile_  = msg->volatile_clod_mass;
 }
 
 void Manipulation::goalCallback(const geometry_msgs::Pose::ConstPtr &msg)
@@ -197,117 +94,50 @@ void Manipulation::manipulationStateCallback(const std_msgs::Int64::ConstPtr &ms
   {
   case STOP:
     {
-      executeHomeArm(10);
+      executeHomeArm(2);
       manipulation_enabled_ = false;
     }
     break;
   case HOME_MODE:
     {
-      executeHomeArm(10);
-      ros::Duration(3).sleep();
+      executeHomeArm(2);
     }
     break;
-  case DIG_MODE:
+  case LOWER_MODE:
     {
-      executeDig(5);
-      ros::Duration(3).sleep();
+      executeLowerArm(2);
     }
     break;
   case SCOOP_MODE:
     {
-      getForwardKinematics();
-      executeScoop(3);
-      ros::Duration(3).sleep();
-      executeAfterScoop(3);
+      executeScoop(2);
+      executeAfterScoop(2);
     }
     break;
   case EXTEND_MODE:
     {
-      executeExtendArm(10);
-      ros::Duration(3).sleep();
+      executeExtendArm(4);
     }
     break;
   case DROP_MODE:
     {
-      executeDrop(3);
-      ros::Duration(3).sleep();
+      executeDrop(2);
     }
     break;
   case START:
     {
       manipulation_enabled_ = true;
       found_volatile_ = false;
-      mass_collected_ = 0;
-      optimization_counter_ = 0;
-      scoop_counter_ = 0;
       manipulation_start_time_ = ros::Time::now();
-      mass_optimization_[0] = 0.0;
-      mass_optimization_[1] = 0.0;
-      mass_optimization_[2] = 0.0;
-      counter_laser_collision_ = 0.0;
       ROS_WARN("MANIPULATION: has started!");
     }
     break;
   }
 }
 
-
-void Manipulation::getForwardKinematics()
-{
-  move_excavator::ExcavatorFK srv;
-  motion_control::ArmGroup q;
-  q.q1 = q1_pos_;
-  q.q2 = q2_pos_;
-  q.q3 = q3_pos_;
-  q.q4 = q4_pos_;
-
-  srv.request.joints = q;
-  bool success = clientFK.call(srv);
-  geometry_msgs::Pose eePose_bodyframe;
-  eePose_bodyframe = srv.response.eePose;
-
-  // TODO: INCLUDE FULL ROTATION MATIRX
-  eePose_.position.x = (eePose_bodyframe.position.x * cos(yaw_) - eePose_bodyframe.position.y * sin(yaw_)) + posx_;
-  eePose_.position.y = (eePose_bodyframe.position.x * sin(yaw_) + eePose_bodyframe.position.y * cos(yaw_)) + posy_;
-  eePose_.position.z = eePose_bodyframe.position.z + posz_;
-
-  eePose_.orientation = eePose_bodyframe.orientation;
-
-  ROS_INFO_STREAM("MANIPULATION: EE global position using FK: " << eePose_.position);
-
-  double q2 = eePose_.orientation.x;
-  double q3 = eePose_.orientation.y;
-  double q4 = eePose_.orientation.z;
-  double q1 = eePose_.orientation.w;
-
-  double r, p, y;
-
-  tf2::Quaternion quat(q2, q3, q4, q1); //or_x,or_y,or_z, and or_w are orientation message from nav_msg
-  tf2::Matrix3x3 m(quat); // q is your quaternion message, dont take just q, but normalize it with q.normalize()
-  m.getRPY(r, p, y); //get your roll pitch yaw from the quaternion message.
-}
-
-void Manipulation::updateLocalization()
-{
-  geometry_msgs::Pose msg;
-
-  msg.position.x = x_goal_ - eePose_.position.x;
-  msg.position.y = y_goal_ - eePose_.position.y;
-  msg.position.z = z_goal_ - eePose_.position.z;
-  msg.orientation.x = mass_in_bucket_;
-  msg.orientation.y = 0.0;
-  msg.orientation.z = 0.0;
-  msg.orientation.w = 0.0;
-
-  pubMeasurementUpdate.publish(msg);
-  ROS_INFO_STREAM("MANIPULATION: Localization. Correction position: " << msg.position);
-}
-
-
 void Manipulation::getRelativePosition()
 {
-
-
+  relative_heading_ = 1.2;
   // ROS_INFO_STREAM("Hauler odometry updated. Pose:" << msg->pose.pose);
   // ROS_INFO_STREAM("Range:" << relative_range);
   // ROS_INFO_STREAM("Is Hauler in range:" << hauler_in_range_);
@@ -330,7 +160,7 @@ void Manipulation::executeHomeArm(double timeout)
   bool success = clientHomeArm.call(srv);
 }
 
-void Manipulation::executeDig(double timeout)
+void Manipulation::executeLowerArm(double timeout)
 {
   move_excavator::LowerArm srv;
   motion_control::ArmGroup q;
@@ -338,43 +168,6 @@ void Manipulation::executeDig(double timeout)
   q.q2 = q2_pos_;
   q.q3 = q3_pos_;
   q.q4 = q4_pos_;
-
-  if(found_volatile_)
-  {
-    ROS_INFO_STREAM("MANIPULATION: Volatile has been found");
-    if (optimization_counter_<2)
-    {
-      volatile_heading_ = heading_options_[scoop_counter_-1] + optimization_options_[optimization_counter_];
-      // ROS_INFO_STREAM("Optimization counter. Step: " << optimization_counter_);
-    }
-    else
-    {
-      // ROS_INFO_STREAM("I have three points for optimization.");
-      if (mass_optimization_[1] > mass_optimization_[0] && mass_optimization_[1] > mass_optimization_[2])
-      {
-        // ROS_INFO_STREAM("Left point had more mass.");
-        volatile_heading_ = heading_options_[scoop_counter_-1] + optimization_options_[0];
-      }
-      else if (mass_optimization_[2] > mass_optimization_[1] && mass_optimization_[2] > mass_optimization_[0])
-      {
-        // ROS_INFO_STREAM("Right point had more mass.");
-        volatile_heading_ = heading_options_[scoop_counter_-1] + optimization_options_[1];
-      }
-      else
-      {
-        // ROS_INFO_STREAM("Center point had more mass.");
-        volatile_heading_ = heading_options_[scoop_counter_-1];
-      }
-    }
-    optimization_counter_++;
-  }
-  else
-  {
-    ROS_INFO_STREAM("MANIPULATION: Volatile not found yet");
-    volatile_heading_ = heading_options_[scoop_counter_-1];
-  }
-
-  ROS_INFO_STREAM("MANIPULATION: Heading sent for digging: " << volatile_heading_*180/M_PI);
 
   srv.request.heading = volatile_heading_;
   srv.request.timeLimit = timeout;
@@ -453,7 +246,7 @@ void Manipulation::outputManipulationStatus()
   move_excavator::ExcavationStatus msg;
   msg.isFinished = true;
   msg.foundVolatile = found_volatile_;
-  msg.collectedMass = mass_collected_;
+  msg.collectedMass = 0;
   msg.haulerInRange = hauler_in_range_;
   pubExcavationStatus.publish(msg);
   ROS_INFO("MANIPULATION: has finished. Publishing to State Machine.");
@@ -484,108 +277,61 @@ int main(int argc, char **argv)
         {
         case HOME_MODE:
           {
-            manipulation.executeHomeArm(10);
-            if(manipulation.scoop_counter_ > 4)
+            manipulation.executeHomeArm(2);
+            if(manipulation.isBucketFull_)
             {
-              manipulation.manipulation_enabled_ = false;
-              manipulation.outputManipulationStatus();
-              manipulation.found_volatile_ = false;
-              manipulation.scoop_counter_ = 0;
-              ROS_ERROR_STREAM("MANIPULATION: interrupted by scoop counter.");
+              manipulation.mode = EXTEND_MODE;
+              // ROS_INFO_STREAM("Is bucket full: " << manipulation.isBucketFull_);
             }
             else
             {
-              if(manipulation.isBucketFull_)
-              {
-                manipulation.mode = EXTEND_MODE;
-                // ROS_INFO_STREAM("Is bucket full: " << manipulation.isBucketFull_);
-              }
-              else
-              {
-                manipulation.mode = DIG_MODE;
-                // ROS_INFO_STREAM("Is bucket full: " << manipulation.isBucketFull_);
-              }
+              manipulation.mode = LOWER_MODE;
+              // ROS_INFO_STREAM("Is bucket full: " << manipulation.isBucketFull_);
             }
           }
           break;
-        case DIG_MODE:
+        case LOWER_MODE:
           {
-            if (!manipulation.found_volatile_)
-            {
-              manipulation.scoop_counter_++;
-            }
-            ROS_INFO_STREAM("MANIPULATION: Scoop counter: " << manipulation.scoop_counter_);
-            manipulation.executeDig(5);
+            manipulation.executeLowerArm(2);
             manipulation.mode = SCOOP_MODE;
           }
           break;
         case SCOOP_MODE:
           {
-            manipulation.executeScoop(0);
-            ros::Time start_time = ros::Time::now();
-            ros::Rate scoop_rate(100);
-            while(ros::Time::now() - start_time < ros::Duration(3))
-            {
-              ros::spinOnce();
-              rate.sleep();
-            }
+            manipulation.executeScoop(2);
             manipulation.executeAfterScoop(2);
             manipulation.mode = HOME_MODE;
           }
           break;
         case EXTEND_MODE:
           {
-            manipulation.executeExtendArm(10);
+            manipulation.executeExtendArm(4);
             ros::Duration(5).sleep();
-            if(manipulation.hauler_in_range_)
-            {
-              // Get relative position
-              manipulation.getRelativePosition();
-              manipulation.mode = DROP_MODE;
-            }
-            else
-            {
-              /* code */
-            }
-            // manipulation.mode = DROP_MODE;
+            manipulation.mode = DROP_MODE;
           }
           break;
         case DROP_MODE:
           {
             manipulation.executeDrop(3);
-            if(abs(100-manipulation.mass_collected_)<manipulation.remaining_mass_thres_)
-            {
-              manipulation.manipulation_enabled_ = false;
-              manipulation.executeHomeArm(10);
-              manipulation.outputManipulationStatus();
-              manipulation.found_volatile_ = false;
-              manipulation.scoop_counter_ = 0;
-              ROS_ERROR_STREAM("MANIPULATION: finished after getting the volatile.");
-            }
-            ros::Duration(5).sleep();
+            manipulation.manipulation_enabled_ = false;
             manipulation.mode = HOME_MODE;
           }
           break;
         }
       }
       else if (manipulation.manipulation_enabled_ && (ros::Time::now() - manipulation.manipulation_start_time_) > ros::Duration(420))
-
       {
         manipulation.manipulation_enabled_ = false;
         manipulation.outputManipulationStatus();
         manipulation.found_volatile_ = false;
-        manipulation.scoop_counter_ = -1;
         ROS_ERROR_STREAM("MANIPULATION: interrupted by timeout.");
       }
       else
       {
         manipulation.manipulation_enabled_ = false;
         manipulation.found_volatile_ = false;
-        manipulation.scoop_counter_ = -1;
         ROS_ERROR_THROTTLE(30,"MANIPULATION: disabled.");
       }
-
-
       ros::spinOnce();
       rate.sleep();
     }
