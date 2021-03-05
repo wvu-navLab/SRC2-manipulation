@@ -106,6 +106,7 @@ public:
   void executeDrop(double timeout);
   void outputManipulationStatus();
   void getRelativePosition();
+  void getForwardKinematics(double timeout);
 
 private:
   // Node Handle
@@ -157,7 +158,6 @@ private:
   double orientz_hauler_ = 0.0;
   double orientw_hauler_ = 0.0;
 
-  double relative_heading_;
 
   // Joint Positions Init
   double q1_pos_ = 0.0;
@@ -177,12 +177,11 @@ private:
   double orienty_goal_ = 0.0;
   double orientz_goal_ = 0.0;
   double orientw_goal_ = 0.0;
-
   Eigen::VectorXd pos_goal_ = Eigen::VectorXd::Zero(3);
-  double volatile_heading_ = 0;
 
-  void getForwardKinematics();
-  void updateLocalization();
+  // Relative Localization
+  double relative_heading_ = 1.57;
+  double volatile_heading_ = 0;
 };
 
 #endif // MANIPULATION_H

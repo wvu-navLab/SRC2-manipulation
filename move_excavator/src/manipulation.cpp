@@ -241,6 +241,22 @@ void Manipulation::executeDrop(double timeout)
   bool success = clientDropVolatile.call(srv);
 }
 
+
+void Manipulation::getForwardKinematics(double timeout)
+{
+  move_excavator::ExcavatorFK srv;
+  motion_control::ArmGroup q;
+  q.q1 = q1_pos_;
+  q.q2 = q2_pos_;
+  q.q3 = q3_pos_;
+  q.q4 = q4_pos_;
+
+  srv.request.joints = q;
+
+  bool success = clientFK.call(srv);
+  eePose_ = srv.response.eePose;
+}
+
 void Manipulation::outputManipulationStatus()
 {
   move_excavator::ExcavationStatus msg;

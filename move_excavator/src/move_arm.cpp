@@ -13,6 +13,8 @@
 MoveArm::MoveArm(ros::NodeHandle & nh)
 : nh_(nh)
 {
+
+
   // Node publishes individual joint positions
   pubJointAngles = nh_.advertise<motion_control::ArmGroup>("control/arm/joint_angles", 1);
 
@@ -26,41 +28,106 @@ MoveArm::MoveArm(ros::NodeHandle & nh)
   serverFK = nh_.advertiseService("manipulation/excavator_fk", &MoveArm::ExcavatorFK, this);
 
   // Link lengths
-  a0 = 0.70;
-  d0 = 0.10;
+  a0_ = 0.70;
+  d0_ = 0.10;
 
-  a1 = 0.19;
-  d1 = 0.12;
+  a1_ = 0.19;
+  d1_ = 0.12;
+  alpha1_ = -PI/2;
 
-  a2 = 0.80;
+  a2_ = 0.80;
 
-  a3 = 0.80;
+  a3_ = 0.80;
 
-  a4 = 0.33/2;
+  a4_ = 0.33/2;
 
   // Denavit-Hartenberg Table
-  a_DH << -a0, -a1, -a2, -a3, -a4;
-  alpha_DH << 0, -PI/2, 0, 0, 0;
-  d_DH << d0, d1, 0, 0, 0;
+  a_DH << -a0_, -a1_, -a2_, -a3_, -a4_;
+  alpha_DH << 0, , 0, 0, 0;
+  d_DH << d0_, d1_, 0, 0, 0;
   theta_DH << 0, 0, 0, 0, 0;
+
+  node_name = = 'move_arm';
+  // Read params from yaml file
+  if (ros::param::get(node_name_ + "/max_pos_error", max_pos_error_) == false)
+  {
+      ROS_FATAL("No parameter 'max_pos_error' specified");
+      ros::shutdown();
+      exit(1);
+  }
+  if(ros::param::get(node_name_+"/max_q4_error",max_q4_error_)==false)
+  {
+    ROS_FATAL("No parameter 'max_q4_error' specified");
+    ros::shutdown();
+    exit(1);
+  }
+  if(ros::param::get(node_name_+"/dt",dt_)==false)
+  {
+    ROS_FATAL("No parameter 'dt' specified");
+    ros::shutdown();
+    exit(1);
+  }
+  if(ros::param::get(node_name_+"/K_pos",K_pos_)==false)
+  {
+    ROS_FATAL("No parameter 'K_pos' specified");
+    ros::shutdown();
+    exit(1);
+  }
+  if(ros::param::get(node_name_+"/K_q4",K_q4_)==false)
+  {
+    ROS_FATAL("No parameter 'K_q4' specified");
+    ros::shutdown();
+    exit(1);
+  }
+}
+
+void Manipulation::jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg)
+{
+  // Find current angles and position
+  int shoulder_yaw_joint_idx;
+  int shoulder_pitch_joint_idx;
+  int elbow_pitch_joint_idx;
+  int wrist_pitch_joint_idx;
+  int spawning_zone_joint_idx;
+
+  // loop joint states
+  for (int i = 0; i < msg->name.size(); i++) {
+    if (msg->name[i] == "shoulder_yaw_joint") {
+      shoulder_yaw_joint_idx = i;
+    }
+    if (msg->name[i] == "shoulder_pitch_joint") {
+      shoulder_pitch_joint_idx = i;
+    }
+    if (msg->name[i] == "elbow_pitch_joint") {
+      elbow_pitch_joint_idx = i;
+    }
+    if (msg->name[i] == "wrist_pitch_joint") {
+      wrist_pitch_joint_idx = i;
+    }
+  }
+
+  q1_curr_ = msg->position[shoulder_yaw_joint_idx];  // TODO: Get ids from the message names
+  q2_curr_ = msg->position[shoulder_pitch_joint_idx];
+  q3_curr_ = msg->position[elbow_pitch_joint_idx];
+  q4_curr_ = msg->position[wrist_pitch_joint_idx];
 }
 
 /*--------------------------------------------------------------------
- * -------------------- GEOMETRY CALC TOOLS --------------------------
+ * -------------------- GEOMETRIC FUNCTIONS --------------------------
  *------------------------------------------------------------------*/
 
-void MoveArm::constrainAngle(double& q_)
+void MoveArm::constrainAngle(double& q)
 {
-    q_ = fmod(q_ + PI,2*PI);
-    if (q_ < 0)
-        q_ += 2*PI;
-    q_ =  q_ - PI;
+    q = fmod(q + PI,2*PI);
+    if (q < 0)
+        q += 2*PI;
+    q =  q - PI;
 }
 
-void MoveArm::limitJoint(double& q_, double max_, double min_)
+void MoveArm::limitJoint(double& q, double max, double min)
 {
-  (q_ > max_)? max_: q_;
-  (q_ < min_)? min_: q_;
+  (q > max)? max: q;
+  (q < min)? min: q;
 }
 
 Eigen::MatrixXd MoveArm::trotx(double alpha)
@@ -94,10 +161,10 @@ Eigen::MatrixXd MoveArm::transl(double x, double y, double z)
 }
 
 /*--------------------------------------------------------------------
- * -------------------- GEOMETRY CALC TOOLS --------------------------
+ * ------------------- JOINT TRAJECTORY FUNCTION ---------------------
  *------------------------------------------------------------------*/
 
-Eigen::MatrixXd jtraj(Eigen::VectorXd q0, Eigen::VectorXd q1, int steps)
+Eigen::MatrixXd MoveArm::jtraj(Eigen::VectorXd q0, Eigen::VectorXd q1, int steps)
 { 
   int n_joints = q0.size();
   int time_scale = 1;
@@ -154,23 +221,14 @@ bool MoveArm::HomeArm(move_excavator::HomeArm::Request  &req, move_excavator::Ho
 
   ROS_INFO_STREAM("HOME ARM.");
   ROS_WARN_STREAM("Take me home, West Virginia.");
-  q.q1 = q1;
-  q.q2 = JOINT2_MIN;
-  q.q3 = JOINT3_MAX/2;
-  q.q4 = 0;
-  // ROS_INFO_STREAM("Publishing joint angles (part 1):");
-  // std::cout << q << std::endl;
-  pubJointAngles.publish(q);
-  ros::Duration(timeout/2).sleep();
-
-  q.q1 = heading_goal;
-  q.q2 = JOINT2_MIN;
-  q.q3 = JOINT3_MAX;
-  q.q4 = 0;
+    q.q1 = 0;
+    q.q2 = JOINT2_MIN;
+    q.q3 = PI/2-JOINT2_MIN;
+    q.q4 = -PI/2; // + PITCH
   // ROS_INFO_STREAM("Publishing joint angles (part 2):");
   // std::cout << q << std::endl;
   pubJointAngles.publish(q);
-  ros::Duration(timeout/2).sleep();
+  ros::Duration(timeout).sleep();
 
   return true;
 }
@@ -319,17 +377,22 @@ bool MoveArm::ExcavatorFK(move_excavator::ExcavatorFK::Request  &req, move_excav
   return true;
 }
 
+
+/*--------------------------------------------------------------------
+ * ----------------- FORWARD KINEMATICS FUNCTIONS --------------------
+ *------------------------------------------------------------------*/
+
 geometry_msgs::Pose MoveArm::calculateFK(double q1, double q2, double q3, double q4)
 {
   ROS_INFO_STREAM("FORWARD KINEMATICS.");
 
-  theta_DH << 0, q1, q2, q3, q4;
-  int N = theta_DH.size();
+  theta_DH_ << 0, q1, q2, q3, q4;
+  int N = theta_DH_.size();
   Eigen::MatrixXd Ai(4,4);
   Eigen::MatrixXd T0Ti(4,4);
   for (size_t i = 0; i < N; i++)
   {
-      Ai = trotz(theta_DH(i)) * transl(0, 0, d_DH(i)) * transl(a_DH(i), 0, 0) * trotx(alpha_DH(i));
+      Ai = trotz(theta_DH_(i)) * transl(0, 0, d_DH_(i)) * transl(a_DH_(i), 0, 0) * trotx(alpha_DH_(i));
       if (i == 0)
       {
           T0Ti = Ai;
@@ -340,11 +403,11 @@ geometry_msgs::Pose MoveArm::calculateFK(double q1, double q2, double q3, double
           ROS_INFO_STREAM("Transformation"<<T0Ti);
       }
   }
-  T0Tn = T0Ti;
-  pos_goal = T0Tn.block(0,3,3,1);
+  T0Tn_ = T0Ti;
+  pos_goal = T0Tn_.block(0,3,3,1);
 
 
-  Eigen::Matrix3d rot = T0Tn.block(0,0,3,3);
+  Eigen::Matrix3d rot = T0Tn_.block(0,0,3,3);
   Eigen::Quaterniond q(rot);
 
   geometry_msgs::Pose eePose;
@@ -364,6 +427,132 @@ geometry_msgs::Pose MoveArm::calculateFK(double q1, double q2, double q3, double
   }
 
   return eePose;
+}
+
+/*--------------------------------------------------------------------
+ * ----------------- INVERSE KINEMATICS FUNCTIONS --------------------
+ *------------------------------------------------------------------*/
+
+Eigen::VectorXd MoveArm::calculateIK(Eigen::VectorXd goal)
+{
+  // End effector position
+  double x_goal = goal(0);
+  double y_goal = goal(1);
+  double z_goal = goal(2);
+  double phi_goal = -PI/2; // goal(0);
+
+  double r = sqrt(x_goal*x_goal + y_goal*y_goal);
+  double r_E = r - a4_*cos(phi_goal);
+  double z_E = z_goal - d0_ - d1_ - a4_*sin(phi_goal);
+  double D = sqrt(z_E*z_E + r_E*r_E);
+
+  double gamma = atan2(-z_E/D, -r_E/D) ;
+
+  double q1_goal = atan2(y_goal,x_goal);
+  double q2_goal = gamma - acos(-(r_E*r_E + z_E*z_E + a2_*a2_ - a3_*a3_)/(2*a2_*D));
+  double q3_goal = atan2((z_E-l2*sin(q2_goal))/a3_,(r_E-a2_*cos(q2_goal))/a3_);
+  double q4_goal = phi_goal- (q2_goal + q3_goal);
+
+  printf ("The goal joint angles are q = (%2.2f, %2.2f, %2.2f, %2.2f).\n", q1_goal, q2_goal, q3_goal, q4_goal);
+
+  constrainAngle(q1_goal);
+  constrainAngle(q2_goal);
+  constrainAngle(q3_goal);
+  constrainAngle(q4_goal);
+
+  printf ("The constrained goal joint angles are q = (%2.2f, %2.2f, %2.2f, %2.2f).\n", q1_goal, q2_goal, q3_goal, q4_goal);
+
+  limitJoint(q1_goal, JOINT1_MAX, JOINT1_MIN);
+  limitJoint(q2_goal, JOINT2_MAX, JOINT2_MIN);
+  limitJoint(q3_goal, JOINT3_MAX, JOINT3_MIN);
+  limitJoint(q4_goal, JOINT4_MAX, JOINT4_MIN);
+
+  printf ("The constrained goal joint angles with limits are q = (%2.2f, %2.2f, %2.2f, %2.2f).\n", q1_goal, q2_goal, q3_goal, q4_goal);
+}
+
+/*--------------------------------------------------------------------
+ * ---------------------- CONTROL FUNCTIONS --------------------------
+ *------------------------------------------------------------------*/
+
+Eigen::MatrixXd MoveArm::getJacobian(Eigen::MatrixXd T0Tn)
+{
+  int N = theta_DH_.size();
+
+  Eigen::Vector3d on(3);
+  on = T0Tn_.block(0,3,3,1);
+
+  Eigen::MatrixXd Ai(4,4);
+  Eigen::MatrixXd T0Ti(4,4);
+  Eigen::Vector3d oi(3);
+  Eigen::Vector3d zi(3);
+
+  Eigen::MatrixXd J = Eigen::MatrixXd::Zero(6,4);
+  for (size_t i = 0; i < N; i++)
+  {
+    Ai = trotz(theta_DH_(i)) * transl(0, 0, d_DH_(i)) * transl(a_DH_(i), 0, 0) * trotx(alpha_DH_(i));
+    if (i == 0)
+    {
+        T0Ti = Ai;
+        zi = T0Ti.block(0,2,3,1);
+        oi = T0Ti.block(0,3,3,1);
+    }
+    else
+    {
+        // Calculate Jacobian column with previous origin and z-axis (i-1)
+        J.block(0, i-1, 3, 1) = zi.cross(on - oi);
+        J.block(3, i-1, 3, 1) = zi;
+        // Update origin and z-axis (i)
+        T0Ti = T0Ti * Ai;
+        zi = T0Ti.block(0,2,3,1);
+        oi = T0Ti.block(0,3,3,1);
+    }
+  }
+  return J;
+}
+
+Eigen::MatrixXd MoveArm::invertJacobian(Eigen::MatrixXd J)
+{
+  return J.completeOrthogonalDecomposition().pseudoInverse();
+}
+
+
+bool MoveArm::ControlInvJac(move_excavator::ControlInvJac::Request  &req, move_excavator::ControlInvJac::Response &res)
+{
+  double x = req.joints.q1;
+  double y = req.joints.q2;
+  double z = req.joints.q3;
+
+  Eigen::VectorXd pos_goal_ << x, y, z;
+
+  ros.spinOnce();
+  // Find current angles and position
+  theta_DH_ << PI, q1_curr_, q2_curr_, q3_curr_, q4_curr_;
+  pose = calculateFK(q1_curr_, q2_curr_, q3_curr_, q4_curr_);
+
+  Eigen::VectorXd pos_current = T0Tn_.block(0,3,3,1);
+  Eigen::VectorXd e = pos_goal_ - pos_current;
+
+  double pos_error = e.norm(); 
+
+  if (pos_error > max_pos_error_) 
+  { 
+    Eigen::VectorXd v(3);
+    Eigen::VectorXd qdot(4);
+    v = K_pos_ * e / e.norm();
+
+    Eigen::MatrixXd J = getJacobian();
+    Eigen::MatrixXd pinvJ = invertJacobian(J);
+
+    qdot = pinvJ.block(0,0,4,3) * v;
+
+    q.q1 = q1_current + dt*qdot(0);
+    q.q2 = q2_current + dt*qdot(1);
+    q.q3 = q3_current + dt*qdot(2);
+    q.q4 = q4_current + dt*qdot(3);
+    pubJointAngles.publish(q);
+  }
+
+  return true;
 }
 
 /*!

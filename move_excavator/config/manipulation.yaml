@@ -1,0 +1,5 @@
+max_pos_error: 0.05
+max_q4_error: 0.01
+dt: 0.02
+K_pos: 30
+K_q4: 0.2
