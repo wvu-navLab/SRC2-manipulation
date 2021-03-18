@@ -129,6 +129,7 @@ private:
   // Geometric Functions
   void constrainAngle(double& q_);
   void limitJoint(double& q_, double max_, double min_);
+  Eigen::MatrixXd jtraj(Eigen::VectorXd q0, Eigen::VectorXd q1, int steps);
 };
 
 #endif // MOVE_ARM_H
