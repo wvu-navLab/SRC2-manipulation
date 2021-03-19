@@ -28,6 +28,7 @@
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/CameraInfo.h>
+#include <geometry_msgs/PointStamped.h>
 #include <move_excavator/MultiAgentState.h>
 
 #include <message_filters/subscriber.h>
@@ -55,10 +56,11 @@ private:
 
     // Subscribers
     ros::Publisher pubMultiAgentState;
+    ros::Publisher pubTarget;
 
     // Subscribers
     ros::Subscriber subLaserScan;
-    //message_filters::Subscriber<sensor_msgs::Image> subImgNoSync;
+   
     message_filters::Subscriber<sensor_msgs::Image> right_image_sub;
     message_filters::Subscriber<sensor_msgs::Image> left_image_sub;
     message_filters::Subscriber<sensor_msgs::CameraInfo> right_info_sub;
@@ -74,6 +76,8 @@ private:
     ros::ServiceServer rotateInPlaceServer;
 
     move_excavator::MultiAgentState m;
+    
+    geometry_msgs::PointStamped target;
     
     int ximg,yimg;
 };

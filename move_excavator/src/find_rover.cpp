@@ -30,6 +30,7 @@ FindRover::FindRover(ros::NodeHandle & nh)
   
   // Node publishes individual joint positions
   pubMultiAgentState = nh_.advertise<move_excavator::MultiAgentState>("/multiAgent", 1000);
+  pubTarget = nh_.advertise<geometry_msgs::PointStamped>("/target", 1000);
 
   //subImgNoSync.registerCallback(&FindRover::imageCallback, this);
   subLaserScan = nh_.subscribe("/small_excavator_1/laser/scan", 1000, &FindRover::laserCallback, this);
@@ -64,7 +65,7 @@ void FindRover::laserCallback(const sensor_msgs::LaserScan::ConstPtr &msg)
           closestIndex = i;
       }
   }
-  ROS_INFO_STREAM("Minimum distance in Lidar view: " << msg->ranges[closestIndex]);
+  //ROS_INFO_STREAM("Minimum distance in Lidar view: " << msg->ranges[closestIndex]);
 
   if(msg->ranges[closestIndex] < 0.8)
   {
@@ -88,6 +89,11 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
   int iLowV = 100;
   int iHighV = 255;
 
+  target.header = msgl->header;
+  target.point.x = 0;
+  target.point.y = 0;
+  target.point.z = 0;
+
   cv_bridge::CvImagePtr cv_ptr;
   try
   {
@@ -103,7 +109,7 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
   cv::Mat raw_image = cv_ptr->image;
   cv::Mat hsv_imagel;
   cv::cvtColor(raw_image, hsv_imagel,CV_BGR2HSV);
-  cv::imshow("hsv_imagel", hsv_imagel);
+ // cv::imshow("hsv_imagel", hsv_imagel);
   
   try
   {
@@ -119,7 +125,7 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
   raw_image = cv_ptr->image;
   cv::Mat hsv_imager;
   cv::cvtColor(raw_image, hsv_imager,CV_BGR2HSV);
-  cv::imshow("hsv_imager", hsv_imager);
+ // cv::imshow("hsv_imager", hsv_imager);
  
   
   //cv::Vec3b hsvPixel = hsv_imagel.at<cv::Vec3b>(268,278);
@@ -203,21 +209,15 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
 			double y = (keypointsl[i].pt.y-cy)/sy*z;
 			
 			ROS_INFO("(%f,%f,%f)", x, y, z);
+			target.point.x = x;
+  			target.point.y = y;
+  			target.point.z = z;
 		}
 	}
   } 
 
-  /*if (keypoints.size() != 0)
-  {
-    m.isRoverInView = true;
-    pubMultiAgentState.publish(m);
-  }
-  else
-  {
-    m.isRoverInView = false;
-    pubMultiAgentState.publish(m);
-  }*/
   
+  pubTarget.publish(target);
 
   // Show blobs
   imshow("blobsl", im_with_keypointsl);
