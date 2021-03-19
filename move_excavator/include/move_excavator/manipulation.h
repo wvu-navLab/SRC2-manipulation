@@ -19,11 +19,13 @@
 #include <ros/ros.h>
 #include <ros/console.h>
 #include <std_msgs/Int64.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_ros/transform_listener.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <sensor_msgs/JointState.h>
 #include <sensor_msgs/LaserScan.h>
-#include <geometry_msgs/Pose.h>
+#include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Odometry.h>
 
 // Custom message includes. Auto-generated from msg/ directory.
@@ -44,6 +46,9 @@
 #include <move_excavator/ExtendArm.h>
 #include <move_excavator/DropVolatile.h>
 #include <move_excavator/ExcavatorFK.h>
+#include <move_excavator/GoToPose.h>
+#include <move_excavator/ControlInvJac.h>
+
 
 #define PI 3.141592653589793
 /*!
@@ -82,7 +87,7 @@ public:
   void bucketCallback(const srcp2_msgs::ExcavatorScoopMsg::ConstPtr &msg);
 
   // Callback function for subscriber.
-  void goalCallback(const geometry_msgs::Pose::ConstPtr &msg);
+  void goalCallback(const geometry_msgs::PoseStamped::ConstPtr &msg);
   void manipulationStateCallback(const std_msgs::Int64::ConstPtr &msg);
   void haulerOdomCallback(const nav_msgs::Odometry::ConstPtr &msg);
   void laserCallbackHauler(const sensor_msgs::LaserScan::ConstPtr &msg);
@@ -104,6 +109,7 @@ public:
   void executeAfterScoop(double timeout);
   void executeExtendArm(double timeout);
   void executeDrop(double timeout);
+  void executeGoToPose(double timeout, const geometry_msgs::PoseStamped::ConstPtr &msg);
   void outputManipulationStatus();
   void getRelativePosition();
   void getForwardKinematics(double timeout);
@@ -132,9 +138,14 @@ private:
   ros::ServiceClient clientAfterScoop;
   ros::ServiceClient clientDropVolatile;
   ros::ServiceClient clientFK;
+  ros::ServiceClient clientGoToPose;
+
+  // Parameters
+  std::string robot_name_;
+  std::string node_name_;
 
   // End-effector Pose Init
-  geometry_msgs::Pose eePose_;
+  geometry_msgs::PoseStamped eePose_;
 
   // Excavator Pose Init
   double posx_ = 0.0;
@@ -182,6 +193,17 @@ private:
   // Relative Localization
   double relative_heading_ = 1.57;
   double volatile_heading_ = 0;
+
+
+  // Transforms
+  tf2_ros::Buffer tf_buffer;
+  tf2_ros::TransformListener tf2_listener;
+  geometry_msgs::TransformStamped odom_to_base_link;
+  geometry_msgs::TransformStamped base_link_to_odom;
+  geometry_msgs::TransformStamped base_link_to_arm_mount;
+  geometry_msgs::TransformStamped arm_mount_to_base_link;
+  geometry_msgs::TransformStamped odom_to_arm_mount;
+  geometry_msgs::TransformStamped arm_mount_to_odom;
 };
 
 #endif // MANIPULATION_H
