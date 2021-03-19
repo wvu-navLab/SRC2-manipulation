@@ -18,7 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   message_filters
   tf2_ros
-  # srcp2_msgs
+  srcp2_msgs
   driving_tools
 )
 
@@ -192,9 +192,9 @@ target_link_libraries(move_arm
   ${catkin_LIBRARIES}
 )
 
-# target_link_libraries(find_rover
-#   ${catkin_LIBRARIES}
-# )
+target_link_libraries(find_rover
+  ${catkin_LIBRARIES}
+)
 #############
 ## Install ##
 #############
