@@ -72,6 +72,8 @@ add_service_files(
   Scoop.srv
   AfterScoop.srv
   ExcavatorFK.srv
+  GoToPose.srv
+  ControlInvJac.srv
 )
 
 ## Generate actions in the 'action' folder

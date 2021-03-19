@@ -15,32 +15,6 @@ Q = [   0,      0,      0,      0;
         -pi/4,  pi/3,   -pi/3,  pi;
         0,      pi/3,   -pi/3,  0];
 
-    
-Q_smooth = Q(1,:);
-for i=1:9
-    Q_ = jtraj(Q(i,:),Q(i+1,:),10);
-    Q_smooth = vertcat(Q_smooth,Q_(2:end,:));
-end
-
-filename = 'animation/trajectoryAnimation.gif';
-for i=1:size(Q_smooth,1)
-    src2m.animate(Q_smooth(i,:));
-%     zlim([0 7])
-%     pause(.1);
-
-    % Capture the plot as an image 
-    frame = getframe(gcf); 
-    im = frame2im(frame); 
-    [imind,cm] = rgb2ind(im,256); 
-    % Write to the GIF File 
-    if i == 1 
-        imwrite(imind,cm,filename,'gif', 'Loopcount',inf); 
-    else 
-        imwrite(imind,cm,filename,'gif','WriteMode','append'); 
-    end
-end
-
-
 %% Link Lengths
 
 l1 = 0.3;

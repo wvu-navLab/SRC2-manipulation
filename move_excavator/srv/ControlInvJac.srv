@@ -1,4 +1,4 @@
-float64 heading
 float64 timeLimit
+geometry_msgs/PoseStamped goal
 ---
 bool success

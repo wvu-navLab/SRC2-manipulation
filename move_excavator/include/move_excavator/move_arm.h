@@ -20,7 +20,7 @@
 #include <ros/ros.h>
 #include <ros/console.h>
 #include <std_msgs/Int64.h>
-#include <geometry_msgs/Pose.h>
+#include <geometry_msgs/PoseStamped.h>
 #include <sensor_msgs/JointState.h>
 
 // Custom message includes. Auto-generated from msg/ directory.
@@ -32,6 +32,8 @@
 #include <move_excavator/AfterScoop.h>
 #include <move_excavator/LowerArm.h>
 #include <move_excavator/ExcavatorFK.h>
+#include <move_excavator/GoToPose.h>
+#include <move_excavator/ControlInvJac.h>
 
 #define PI 3.141592653589793
 
@@ -53,6 +55,9 @@ public:
   // Constructor
   MoveArm(ros::NodeHandle & nh);
 
+  // Callback function for subscriber
+  void jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg);
+
   // Services
   bool HomeArm(move_excavator::HomeArm::Request  &req, move_excavator::HomeArm::Response &res);
   bool ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator::ExtendArm::Response &res);
@@ -61,7 +66,8 @@ public:
   bool AfterScoop(move_excavator::AfterScoop::Request  &req, move_excavator::AfterScoop::Response &res);
   bool LowerArm(move_excavator::LowerArm::Request  &req, move_excavator::LowerArm::Response &res);
   bool ExcavatorFK(move_excavator::ExcavatorFK::Request &req, move_excavator::ExcavatorFK::Response &res);
-
+  bool GoToPose(move_excavator::GoToPose::Request &req, move_excavator::GoToPose::Response &res);
+  bool ControlInvJac(move_excavator::ControlInvJac::Request &req, move_excavator::ControlInvJac::Response &res);
 
 private:
   // Node Handle
@@ -69,6 +75,9 @@ private:
 
   // Publishers
   ros::Publisher pubJointAngles;
+
+  // Subscribers
+  ros::Subscriber subJointStates;
 
   // Service Servers
   ros::ServiceServer serverHomeArm;
@@ -78,42 +87,45 @@ private:
   ros::ServiceServer serverAfterScoop;
   ros::ServiceServer serverLowerArm;
   ros::ServiceServer serverFK;
+  ros::ServiceServer serverGoToPose;
+  ros::ServiceServer serverControlInvJac;
 
-  // Message
-  motion_control::ArmGroup q;
+  // Namespaces
+  std::string node_name_; 
+  std::string robot_name_; 
 
   // Link lengths
-  double a0, d0;
-  double a1, d1;
-  double a2;
-  double a3;
-  double a4;
+  double a0_, d0_;
+  double a1_, d1_, alpha1_;
+  double a2_;
+  double a3_;
+  double a4_;
 
-  // double max_pos_error = 0.05;
-  // double max_q4_error = 0.01;
-  // double dt = 0.02;
-  // double K_pos = 30;
-  // double K_q4 = 0.2;
+  // Joint Positions
+  double q1_curr_ = 0.0;
+  double q2_curr_ = 0.0;
+  double q3_curr_ = 0.0;
+  double q4_curr_ = 0.0;
+  
+  // DH Parameters 
+  Eigen::VectorXd a_DH_ = Eigen::VectorXd::Zero(5);
+  Eigen::VectorXd alpha_DH_ = Eigen::VectorXd::Zero(5);
+  Eigen::VectorXd d_DH_ = Eigen::VectorXd::Zero(5);
+  Eigen::VectorXd theta_DH_ = Eigen::VectorXd::Zero(5);
 
-  // End effector position
-  // double x_goal, y_goal, z_goal, phi_goal;
+  // Homogeneous transform arm mount to end-effector
+  Eigen::MatrixXd T0Tn_ = Eigen::MatrixXd::Identity(4,4);
 
-  // Joint angles
-  // double q1_goal = 0.0;
-  // double q2_goal = 0.0;
-  // double q3_goal = 0.0;
-  // double q4_goal = 0.0;
+  // Inverse Jacobian Control Parameters
+  double max_pos_error_;
+  double max_q4_error_;
+  double dt_;
+  double K_pos_;
+  double K_q4_;
 
-  Eigen::VectorXd a_DH = Eigen::VectorXd::Zero(5);
-  Eigen::VectorXd alpha_DH = Eigen::VectorXd::Zero(5);
-  Eigen::VectorXd d_DH = Eigen::VectorXd::Zero(5);
-  Eigen::VectorXd theta_DH = Eigen::VectorXd::Zero(5);
-
-  Eigen::VectorXd pos_goal = Eigen::VectorXd::Zero(3);
-
-  Eigen::MatrixXd T0Tn = Eigen::MatrixXd::Identity(4,4);
-  // Eigen::MatrixXd J = Eigen::MatrixXd::Zero(6,4);
-  // Eigen::MatrixXd pinvJ = Eigen::MatrixXd::Zero(4,6);
+  // Geometric Functions
+  void constrainAngle(double& q);
+  void limitJoint(double& q, double max, double min);
 
   // Transformation Functions
   Eigen::MatrixXd trotx(double alpha);
@@ -121,15 +133,17 @@ private:
   Eigen::MatrixXd transl(double x, double y, double z);
 
   // Kinematic Functions
-  geometry_msgs::Pose calculateFK(double q1, double q2, double q3, double q4);
+  geometry_msgs::PoseStamped solveFK(double q1, double q2, double q3, double q4);
 
-  // Flags
-  // bool armControlEnabled_ = false;
+  // Inverse Kinematics Functions  
+  Eigen::VectorXd solveIK(Eigen::VectorXd goal_xyz);
 
-  // Geometric Functions
-  void constrainAngle(double& q_);
-  void limitJoint(double& q_, double max_, double min_);
+  // Control Functions
   Eigen::MatrixXd jtraj(Eigen::VectorXd q0, Eigen::VectorXd q1, int steps);
+  Eigen::MatrixXd calculateJacobian();
+  Eigen::MatrixXd invertJacobian(Eigen::MatrixXd J);
+
+
 };
 
 #endif // MOVE_ARM_H

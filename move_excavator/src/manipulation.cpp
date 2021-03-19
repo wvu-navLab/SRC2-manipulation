@@ -11,7 +11,8 @@
 #include "move_excavator/manipulation.h"
 
 Manipulation::Manipulation(ros::NodeHandle & nh)
-: nh_(nh)
+: nh_(nh),
+  tf2_listener(tf_buffer)
 {
   // Publishers
   pubExcavationStatus = nh_.advertise<move_excavator::ExcavationStatus>("manipulation/feedback", 10);
@@ -33,6 +34,16 @@ Manipulation::Manipulation(ros::NodeHandle & nh)
   clientAfterScoop = nh_.serviceClient<move_excavator::AfterScoop>("manipulation/after_scoop");
   clientExtendArm = nh_.serviceClient<move_excavator::ExtendArm>("manipulation/extend_arm");
   clientDropVolatile = nh_.serviceClient<move_excavator::DropVolatile>("manipulation/drop_volatile");
+  clientGoToPose = nh_.serviceClient<move_excavator::GoToPose>("manipulation/go_to_pose");
+
+  node_name_ = "manipulation";
+  // Read params from yaml file
+  if (ros::param::get(node_name_ + "/robot_name", robot_name_) == false)
+  {
+      ROS_FATAL("No parameter 'robot_name' specified");
+      ros::shutdown();
+      exit(1);
+  }
 }
 
 void Manipulation::jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg)
@@ -72,15 +83,15 @@ void Manipulation::bucketCallback(const srcp2_msgs::ExcavatorScoopMsg::ConstPtr 
   found_volatile_  = msg->volatile_clod_mass;
 }
 
-void Manipulation::goalCallback(const geometry_msgs::Pose::ConstPtr &msg)
+void Manipulation::goalCallback(const geometry_msgs::PoseStamped::ConstPtr &msg)
 {
-  x_goal_ = msg->position.x;
-  y_goal_ = msg->position.y;
-  z_goal_ = msg->position.z;
-  orientx_goal_ = msg->orientation.x;
-  orienty_goal_ = msg->orientation.y;
-  orientz_goal_ = msg->orientation.z;
-  orientw_goal_ = msg->orientation.w;
+  x_goal_ = msg->pose.position.x;
+  y_goal_ = msg->pose.position.y;
+  z_goal_ = msg->pose.position.z;
+  orientx_goal_ = msg->pose.orientation.x;
+  orienty_goal_ = msg->pose.orientation.y;
+  orientz_goal_ = msg->pose.orientation.z;
+  orientw_goal_ = msg->pose.orientation.w;
 
   pos_goal_ << x_goal_, y_goal_, z_goal_;
 
@@ -147,15 +158,9 @@ void Manipulation::getRelativePosition()
 void Manipulation::executeHomeArm(double timeout)
 {
   move_excavator::HomeArm srv;
-  motion_control::ArmGroup q;
-  q.q1 = q1_pos_;
-  q.q2 = q2_pos_;
-  q.q3 = q3_pos_;
-  q.q4 = q4_pos_;
 
   srv.request.heading = 0;
   srv.request.timeLimit = timeout;
-  srv.request.joints = q;
 
   bool success = clientHomeArm.call(srv);
 }
@@ -163,15 +168,9 @@ void Manipulation::executeHomeArm(double timeout)
 void Manipulation::executeLowerArm(double timeout)
 {
   move_excavator::LowerArm srv;
-  motion_control::ArmGroup q;
-  q.q1 = q1_pos_;
-  q.q2 = q2_pos_;
-  q.q3 = q3_pos_;
-  q.q4 = q4_pos_;
 
   srv.request.heading = volatile_heading_;
   srv.request.timeLimit = timeout;
-  srv.request.joints = q;
 
   bool success = clientLowerArm.call(srv);
 }
@@ -179,15 +178,9 @@ void Manipulation::executeLowerArm(double timeout)
 void Manipulation::executeScoop(double timeout)
 {
   move_excavator::Scoop srv;
-  motion_control::ArmGroup q;
-  q.q1 = q1_pos_;
-  q.q2 = q2_pos_;
-  q.q3 = q3_pos_;
-  q.q4 = q4_pos_;
 
   srv.request.heading = volatile_heading_;
   srv.request.timeLimit = timeout;
-  srv.request.joints = q;
 
   bool success = clientScoop.call(srv);
 }
@@ -195,15 +188,9 @@ void Manipulation::executeScoop(double timeout)
 void Manipulation::executeAfterScoop(double timeout)
 {
   move_excavator::AfterScoop srv;
-  motion_control::ArmGroup q;
-  q.q1 = q1_pos_;
-  q.q2 = q2_pos_;
-  q.q3 = q3_pos_;
-  q.q4 = q4_pos_;
 
   srv.request.heading = volatile_heading_;
   srv.request.timeLimit = timeout;
-  srv.request.joints = q;
 
   bool success = clientAfterScoop.call(srv);
 }
@@ -212,15 +199,9 @@ void Manipulation::executeAfterScoop(double timeout)
 void Manipulation::executeExtendArm(double timeout)
 {
   move_excavator::ExtendArm srv;
-  motion_control::ArmGroup q;
-  q.q1 = q1_pos_;
-  q.q2 = q2_pos_;
-  q.q3 = q3_pos_;
-  q.q4 = q4_pos_;
 
   srv.request.heading = relative_heading_;
   srv.request.timeLimit = timeout;
-  srv.request.joints = q;
 
   bool success = clientExtendArm.call(srv);
 }
@@ -228,17 +209,39 @@ void Manipulation::executeExtendArm(double timeout)
 void Manipulation::executeDrop(double timeout)
 {
   move_excavator::DropVolatile srv;
+
+  srv.request.heading = relative_heading_;
+  srv.request.timeLimit = timeout;
+
+  bool success = clientDropVolatile.call(srv);
+}
+
+void Manipulation::executeGoToPose(double timeout, const geometry_msgs::PoseStamped::ConstPtr &msg)
+{
+  move_excavator::GoToPose srv;
+  geometry_msgs::PoseStamped goal;
+
+  odom_to_arm_mount = tf_buffer.lookupTransform(robot_name_+"_arm_mount", robot_name_+"_odom", ros::Time(0), ros::Duration(1.0));
+  tf2::doTransform(*msg, goal, odom_to_arm_mount);
+
+  srv.request.goal = goal;
+
+  bool success = clientGoToPose.call(srv);
+}
+
+void Manipulation::getForwardKinematics(double timeout)
+{
+  move_excavator::ExcavatorFK srv;
   motion_control::ArmGroup q;
   q.q1 = q1_pos_;
   q.q2 = q2_pos_;
   q.q3 = q3_pos_;
   q.q4 = q4_pos_;
 
-  srv.request.heading = relative_heading_;
-  srv.request.timeLimit = timeout;
   srv.request.joints = q;
 
-  bool success = clientDropVolatile.call(srv);
+  bool success = clientFK.call(srv);
+  eePose_ = srv.response.eePose;
 }
 
 void Manipulation::outputManipulationStatus()
