@@ -80,6 +80,8 @@ private:
     geometry_msgs::PointStamped target;
     
     int ximg,yimg;
+    
+    bool static compareKeypoints(const cv::KeyPoint &k1, const cv::KeyPoint &k2);
 };
 
 #endif // ROTATE_IN_PLACE_H

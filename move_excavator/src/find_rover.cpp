@@ -78,12 +78,19 @@ void FindRover::laserCallback(const sensor_msgs::LaserScan::ConstPtr &msg)
   pubMultiAgentState.publish(m);
 }
 
+
+bool FindRover::compareKeypoints(const cv::KeyPoint &k1, const cv::KeyPoint &k2)
+{
+	if (k1.size > k2.size) return true;
+  	else return false;
+}
+
 void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sensor_msgs::CameraInfoConstPtr& info_msgl, const sensor_msgs::ImageConstPtr& msgr, const sensor_msgs::CameraInfoConstPtr& info_msgr)
 {
   int iLowH = 0;
   int iHighH = 5;
 
-  int iLowS = 230;
+  int iLowS = 190;
   int iHighS = 250;
 
   int iLowV = 100;
@@ -128,7 +135,7 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
  // cv::imshow("hsv_imager", hsv_imager);
  
   
-  //cv::Vec3b hsvPixel = hsv_imagel.at<cv::Vec3b>(268,278);
+  //cv::Vec3b hsvPixel = hsv_imagel.at<cv::Vec3b>(271,484);
   //ROS_INFO("%d %d %d", hsvPixel.val[0], hsvPixel.val[1], hsvPixel.val[2] );
 
   
@@ -155,7 +162,7 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
 
   // Filter by Area.
   params.filterByArea = true;
-  params.minArea = 200;
+  params.minArea = 300;
   params.maxArea = 2000000;
 
   // Filter by Circularity
@@ -189,29 +196,47 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
   
   if ((keypointsl.size() > 0) && (keypointsr.size() > 0))
   {
- 	int i=0;
- 	double disparity = keypointsl[i].pt.x - keypointsr[i].pt.x;
- 	double offset = keypointsl[i].pt.y - keypointsr[i].pt.y;
+ 	// Sort the keypoints in order of area
+ 	std::sort(keypointsl.begin(), keypointsl.end(), compareKeypoints);
+ 	std::sort(keypointsr.begin(), keypointsr.end(), compareKeypoints);
  	
- 	if(disparity > 5 && disparity < 100)
-	{
-		//check epipolar constraint
-      		if(offset < 5 && offset > -5)
+ 	/*for (int i=0;i<keypointsl.size();i++){
+ 		ROS_INFO("Left: Area %f", keypointsl[i].size);
+ 	}
+ 	for (int i=0;i<keypointsr.size();i++){
+ 		ROS_INFO("Righ: Area %f", keypointsr[i].size);
+ 	}
+ 	ROS_INFO("____");*/
+ 	
+ 	
+ 	int i=0; // Get the larger keypoints in each camera
+ 	
+ 	// check if is the same object 
+ 	if (fabs(keypointsl[i].size - keypointsr[i].size)<20)
+ 	{
+ 		double disparity = keypointsl[i].pt.x - keypointsr[i].pt.x;
+ 		double offset = keypointsl[i].pt.y - keypointsr[i].pt.y;
+ 	
+ 		if(disparity > 5 && disparity < 100)
 		{
-			double cx = (double) info_msgl->P[2];
-			double cy = (double) info_msgl->P[6];
-			double sx = (double) info_msgl->P[0];
-			double sy = (double) info_msgl->P[5];
-			double bl = (double) (-(double)info_msgr->P[3]/info_msgr->P[0]);
+			//check epipolar constraint
+      			if(offset < 5 && offset > -5)
+			{
+				double cx = (double) info_msgl->P[2];
+				double cy = (double) info_msgl->P[6];
+				double sx = (double) info_msgl->P[0];
+				double sy = (double) info_msgl->P[5];
+				double bl = (double) (-(double)info_msgr->P[3]/info_msgr->P[0]);
 
-			double z = sx/disparity*bl;
-			double x = (keypointsl[i].pt.x-cx)/sx*z;
-			double y = (keypointsl[i].pt.y-cy)/sy*z;
+				double z = sx/disparity*bl;
+				double x = (keypointsl[i].pt.x-cx)/sx*z;
+				double y = (keypointsl[i].pt.y-cy)/sy*z;
 			
-			ROS_INFO("(%f,%f,%f)", x, y, z);
-			target.point.x = x;
-  			target.point.y = y;
-  			target.point.z = z;
+				//ROS_INFO("(%f,%f,%f)", x, y, z);
+				target.point.x = x;
+  				target.point.y = y;
+  				target.point.z = z;
+			}
 		}
 	}
   } 
