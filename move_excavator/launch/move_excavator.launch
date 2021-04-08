@@ -6,6 +6,11 @@
           name="move_arm"
           type="move_arm"
           output="screen">
+      <rosparam
+        command="load"
+        file="$(find move_excavator)/config/move_arm.yaml"
+        subst_value="true"
+      />
     </node>
 
   </group>

@@ -30,15 +30,15 @@ FindRover::FindRover(ros::NodeHandle & nh)
   
   // Node publishes individual joint positions
   pubMultiAgentState = nh_.advertise<move_excavator::MultiAgentState>("/multiAgent", 1000);
-  pubTarget = nh_.advertise<geometry_msgs::PointStamped>("/target", 1000);
+  pubTarget = nh_.advertise<geometry_msgs::PointStamped>("manipulation/target_bin", 1000);
 
   //subImgNoSync.registerCallback(&FindRover::imageCallback, this);
-  subLaserScan = nh_.subscribe("/small_excavator_1/laser/scan", 1000, &FindRover::laserCallback, this);
+  subLaserScan = nh_.subscribe("laser/scan", 1000, &FindRover::laserCallback, this);
   
-  right_image_sub.subscribe(nh_,"/small_excavator_1/camera/right/image_raw", 1);
-  left_image_sub.subscribe(nh_,"/small_excavator_1/camera/left/image_raw", 1);
-  right_info_sub.subscribe(nh_,"/small_excavator_1/camera/right/camera_info", 1);
-  left_info_sub.subscribe(nh_,"/small_excavator_1/camera/left/camera_info", 1);
+  right_image_sub.subscribe(nh_,"camera/right/image_raw", 1);
+  left_image_sub.subscribe(nh_,"camera/left/image_raw", 1);
+  right_info_sub.subscribe(nh_,"camera/right/camera_info", 1);
+  left_info_sub.subscribe(nh_,"camera/left/camera_info", 1);
   
   sync.registerCallback(boost::bind(&FindRover::imageCallback,this, _1, _2, _3, _4));
   
@@ -220,7 +220,7 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
  		if(disparity > 5 && disparity < 100)
 		{
 			//check epipolar constraint
-      			if(offset < 5 && offset > -5)
+      if(offset < 5 && offset > -5)
 			{
 				double cx = (double) info_msgl->P[2];
 				double cy = (double) info_msgl->P[6];
@@ -234,8 +234,8 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
 			
 				//ROS_INFO("(%f,%f,%f)", x, y, z);
 				target.point.x = x;
-  				target.point.y = y;
-  				target.point.z = z;
+        target.point.y = y;
+        target.point.z = z;
 			}
 		}
 	}

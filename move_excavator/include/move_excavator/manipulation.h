@@ -26,6 +26,7 @@
 #include <sensor_msgs/JointState.h>
 #include <sensor_msgs/LaserScan.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PointStamped.h>
 #include <nav_msgs/Odometry.h>
 
 // Custom message includes. Auto-generated from msg/ directory.
@@ -87,7 +88,8 @@ public:
   void bucketCallback(const srcp2_msgs::ExcavatorScoopMsg::ConstPtr &msg);
 
   // Callback function for subscriber.
-  void goalCallback(const geometry_msgs::PoseStamped::ConstPtr &msg);
+  void goalVolatileCallback(const geometry_msgs::PoseStamped::ConstPtr &msg);
+  void targetBinCallback(const geometry_msgs::PointStamped::ConstPtr &msg);
   void manipulationStateCallback(const std_msgs::Int64::ConstPtr &msg);
   void haulerOdomCallback(const nav_msgs::Odometry::ConstPtr &msg);
   void laserCallbackHauler(const sensor_msgs::LaserScan::ConstPtr &msg);
@@ -128,6 +130,7 @@ private:
   ros::Subscriber subJointStates;
   ros::Subscriber subBucketInfo;
   ros::Subscriber subGoalVolatile;
+  ros::Subscriber subTargetBin;
   ros::Subscriber subManipulationState;
 
   // Clients
@@ -146,6 +149,7 @@ private:
 
   // End-effector Pose Init
   geometry_msgs::PoseStamped eePose_;
+
 
   // Excavator Pose Init
   double posx_ = 0.0;
@@ -180,15 +184,11 @@ private:
   bool volatile_in_bucket_ = false;
   bool regolith_in_bucket = false;
 
-  // Goal Volatile Pos Init
-  double x_goal_ = 0.0;
-  double y_goal_ = 0.0;
-  double z_goal_ = 0.0;
-  double orientx_goal_ = 0.0;
-  double orienty_goal_ = 0.0;
-  double orientz_goal_ = 0.0;
-  double orientw_goal_ = 0.0;
-  Eigen::VectorXd pos_goal_ = Eigen::VectorXd::Zero(3);
+  // Goal Volatile Pose
+  geometry_msgs::PoseStamped volatile_pose_;
+
+  // Target Bin Point  
+  geometry_msgs::PointStamped bin_point_;
 
   // Relative Localization
   double relative_heading_ = 1.57;
@@ -204,6 +204,8 @@ private:
   geometry_msgs::TransformStamped arm_mount_to_base_link;
   geometry_msgs::TransformStamped odom_to_arm_mount;
   geometry_msgs::TransformStamped arm_mount_to_odom;
+  geometry_msgs::TransformStamped camera_link_to_arm_mount;
+  geometry_msgs::TransformStamped arm_mount_to_camera_link;
 };
 
 #endif // MANIPULATION_H

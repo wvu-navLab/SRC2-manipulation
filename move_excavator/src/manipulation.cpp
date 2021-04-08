@@ -22,7 +22,8 @@ Manipulation::Manipulation(ros::NodeHandle & nh)
   // subHaulerOdom =  nh_.subscribe("/small_hauler_1/localization/odometry/sensor_fusion", 10, &Manipulation::haulerOdomCallback, this);
   subJointStates = nh_.subscribe("joint_states", 1, &Manipulation::jointStateCallback, this);
   subBucketInfo = nh_.subscribe("scoop_info", 1, &Manipulation::bucketCallback, this);
-  subGoalVolatile = nh_.subscribe("manipulation/volatile_pose", 1, &Manipulation::goalCallback, this);
+  subGoalVolatile = nh_.subscribe("manipulation/volatile_pose", 1, &Manipulation::goalVolatileCallback, this);
+  subTargetBin = nh_.subscribe("manipulation/target_bin", 1, &Manipulation::targetBinCallback, this);
   subManipulationState =  nh_.subscribe("manipulation/state", 1, &Manipulation::manipulationStateCallback, this);
   // subLaserScanHauler = nh_.subscribe("/small_hauler_1/laser/scan", 1, &Manipulation::laserCallbackHauler, this);
 
@@ -83,19 +84,21 @@ void Manipulation::bucketCallback(const srcp2_msgs::ExcavatorScoopMsg::ConstPtr 
   found_volatile_  = msg->volatile_clod_mass;
 }
 
-void Manipulation::goalCallback(const geometry_msgs::PoseStamped::ConstPtr &msg)
+void Manipulation::goalVolatileCallback(const geometry_msgs::PoseStamped::ConstPtr &msg)
 {
-  x_goal_ = msg->pose.position.x;
-  y_goal_ = msg->pose.position.y;
-  z_goal_ = msg->pose.position.z;
-  orientx_goal_ = msg->pose.orientation.x;
-  orienty_goal_ = msg->pose.orientation.y;
-  orientz_goal_ = msg->pose.orientation.z;
-  orientw_goal_ = msg->pose.orientation.w;
 
-  pos_goal_ << x_goal_, y_goal_, z_goal_;
+  odom_to_arm_mount = tf_buffer.lookupTransform(robot_name_+"_arm_mount", robot_name_+"_odom", ros::Time(0), ros::Duration(1.0));
+  tf2::doTransform(*msg, volatile_pose_, odom_to_arm_mount);
 
   ROS_INFO_STREAM("MANIPULATION: Goal volatile updated. Pose:" << *msg);
+}
+
+void Manipulation::targetBinCallback(const geometry_msgs::PointStamped::ConstPtr &msg)
+{
+  camera_link_to_arm_mount = tf_buffer.lookupTransform(robot_name_+"_arm_mount", robot_name_+"_left_camera_optical", ros::Time(0), ros::Duration(1.0));
+  tf2::doTransform(*msg, bin_point_, camera_link_to_arm_mount);
+
+  ROS_INFO_STREAM("MANIPULATION: Target bin updated. Point:" << *msg);
 }
 
 void Manipulation::manipulationStateCallback(const std_msgs::Int64::ConstPtr &msg)
@@ -216,15 +219,11 @@ void Manipulation::executeDrop(double timeout)
   bool success = clientDropVolatile.call(srv);
 }
 
-void Manipulation::executeGoToPose(double timeout, const geometry_msgs::PoseStamped::ConstPtr &msg)
+void Manipulation::executeGoToPose(double timeout, const geometry_msgs::PoseStamped::ConstPtr &pose)
 {
   move_excavator::GoToPose srv;
-  geometry_msgs::PoseStamped goal;
-
-  odom_to_arm_mount = tf_buffer.lookupTransform(robot_name_+"_arm_mount", robot_name_+"_odom", ros::Time(0), ros::Duration(1.0));
-  tf2::doTransform(*msg, goal, odom_to_arm_mount);
-
-  srv.request.goal = goal;
+  
+  srv.request.goal = *pose;
 
   bool success = clientGoToPose.call(srv);
 }

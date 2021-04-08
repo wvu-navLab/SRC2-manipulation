@@ -52,7 +52,7 @@ MoveArm::MoveArm(ros::NodeHandle & nh)
 
   node_name_ ="move_arm";
   // Read params from yaml file
-  if (ros::param::get(node_name_ + "/max_pos_error", robot_name_) == false)
+  if (ros::param::get(node_name_ + "/robot_name", robot_name_) == false)
   {
       ROS_FATAL("No parameter 'robot_name_' specified");
       ros::shutdown();
@@ -421,11 +421,12 @@ geometry_msgs::PoseStamped MoveArm::solveFK(double q1, double q2, double q3, dou
       if (i == 0)
       {
           T0Ti = Ai;
+          ROS_INFO_STREAM("Ai:" << T0Ti);
       }
       else
       {
           T0Ti = T0Ti*Ai;
-          ROS_INFO_STREAM("Transformation"<<T0Ti);
+          ROS_INFO_STREAM("Final transformation" << T0Ti);
       }
   }
   T0Tn_ = T0Ti;

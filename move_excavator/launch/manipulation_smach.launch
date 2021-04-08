@@ -12,6 +12,11 @@
           name="manipulation"
           type="manipulation"
           output="screen">
+      <rosparam
+        command="load"
+        file="$(find move_excavator)/config/manipulation.yaml"
+        subst_value="true"
+      />
     </node>
 
   </group>
