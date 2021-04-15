@@ -31,18 +31,18 @@ MoveArm::MoveArm(ros::NodeHandle & nh)
   serverFK = nh_.advertiseService("manipulation/excavator_fk", &MoveArm::ExcavatorFK, this);
 
   // Link lengths
-  a0_ = -0.70;
+  a0_ = 0.70;
   d0_ = 0.10;
 
-  a1_ = -0.19;
+  a1_ = 0.19;
   d1_ = 0.12;
   alpha1_ = -PI/2;
 
-  a2_ = -0.80;
+  a2_ = 0.80;
 
-  a3_ = -0.80;
+  a3_ = 0.80;
 
-  a4_ = -0.23;
+  a4_ = 0.23;
 
   // Denavit-Hartenberg Table
   a_DH_ << a0_, a1_, a2_, a3_, a4_;
@@ -440,7 +440,7 @@ geometry_msgs::PoseStamped MoveArm::solveFK(double q1, double q2, double q3, dou
 
   geometry_msgs::PoseStamped eePose;
   eePose.header.stamp = ros::Time::now();
-  eePose.header.frame_id = robot_name_+"_arm_mount";
+  eePose.header.frame_id = robot_name_+"_base_link";
   eePose.pose.position.x = pos_goal[0];
   eePose.pose.position.y = pos_goal[1];
   eePose.pose.position.z = pos_goal[2];
