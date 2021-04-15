@@ -98,7 +98,11 @@ void Manipulation::targetBinCallback(const geometry_msgs::PointStamped::ConstPtr
   camera_link_to_arm_mount = tf_buffer.lookupTransform(robot_name_+"_arm_mount", robot_name_+"_left_camera_optical", ros::Time(0), ros::Duration(1.0));
   tf2::doTransform(*msg, bin_point_, camera_link_to_arm_mount);
 
-  ROS_INFO_STREAM("MANIPULATION: Target bin updated. Point:" << *msg);
+  bin_point_.point.x-=0.7;
+  bin_point_.point.z-=0.1;
+  //ROS_INFO_STREAM("MANIPULATION: Target bin updated. Point:" << *msg);
+  ROS_INFO_STREAM("MANIPULATION: Target bin updated. Point:" << bin_point_);
+  
 }
 
 void Manipulation::manipulationStateCallback(const std_msgs::Int64::ConstPtr &msg)

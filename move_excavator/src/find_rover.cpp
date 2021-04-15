@@ -10,6 +10,8 @@
 
 #include "move_excavator/find_rover.h"
 
+//#define SHOWIMG
+
 void FindRover::CallBackFunc(int event, int x, int y, int flags, void* userdata)
 {
      if  ( event == cv::EVENT_LBUTTONDOWN )
@@ -24,9 +26,11 @@ FindRover::FindRover(ros::NodeHandle & nh)
 {
   ximg=0;
   yimg=0;
+#ifdef SHOWIMG  
   cv::namedWindow("originall");
   cv::startWindowThread(); 
   cv::setMouseCallback("originall", CallBackFunc, this);
+#endif  
   
   // Node publishes individual joint positions
   pubMultiAgentState = nh_.advertise<move_excavator::MultiAgentState>("/multiAgent", 1000);
@@ -90,7 +94,7 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
   int iLowH = 0;
   int iHighH = 5;
 
-  int iLowS = 190;
+  int iLowS = 130;
   int iHighS = 250;
 
   int iLowV = 100;
@@ -105,7 +109,9 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
   try
   {
     cv_ptr = cv_bridge::toCvCopy(msgl, sensor_msgs::image_encodings::BGR8);
+#ifdef SHOWIMG     
     cv::imshow("originall", cv_ptr->image);
+#endif    
   }
   catch (cv_bridge::Exception& e)
   {
@@ -121,7 +127,9 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
   try
   {
     cv_ptr = cv_bridge::toCvCopy(msgr, sensor_msgs::image_encodings::BGR8);
+#ifdef SHOWIMG         
     cv::imshow("original1", cv_ptr->image);
+#endif    
   }
   catch (cv_bridge::Exception& e)
   {
@@ -135,7 +143,7 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
  // cv::imshow("hsv_imager", hsv_imager);
  
   
-  //cv::Vec3b hsvPixel = hsv_imagel.at<cv::Vec3b>(271,484);
+  //cv::Vec3b hsvPixel = hsv_imagel.at<cv::Vec3b>(280,484);
   //ROS_INFO("%d %d %d", hsvPixel.val[0], hsvPixel.val[1], hsvPixel.val[2] );
 
   
@@ -162,7 +170,7 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
 
   // Filter by Area.
   params.filterByArea = true;
-  params.minArea = 300;
+  params.minArea = 4000;
   params.maxArea = 2000000;
 
   // Filter by Circularity
@@ -188,11 +196,11 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
 
   // Draw detected blobs as red circles.
   // DrawMatchesFlags::DRAW_RICH_KEYPOINTS flag ensures the size of the circle corresponds to the size of blob
-  cv::Mat im_with_keypointsl;
+#ifdef SHOWIMG  
+  cv::Mat im_with_keypointsl, im_with_keypointsr; 
   cv::drawKeypoints( imgThresholdedl, keypointsl, im_with_keypointsl, cv::Scalar(0,0,255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
-  
-  cv::Mat im_with_keypointsr;
   cv::drawKeypoints( imgThresholdedr, keypointsr, im_with_keypointsr, cv::Scalar(0,0,255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
+#endif
   
   if ((keypointsl.size() > 0) && (keypointsr.size() > 0))
   {
@@ -220,7 +228,7 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
  		if(disparity > 5 && disparity < 100)
 		{
 			//check epipolar constraint
-      if(offset < 5 && offset > -5)
+     			 if(offset < 5 && offset > -5)
 			{
 				double cx = (double) info_msgl->P[2];
 				double cy = (double) info_msgl->P[6];
@@ -234,19 +242,21 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
 			
 				//ROS_INFO("(%f,%f,%f)", x, y, z);
 				target.point.x = x;
-        target.point.y = y;
-        target.point.z = z;
+        			target.point.y = y;
+        			target.point.z = z;
+        			pubTarget.publish(target);
 			}
 		}
 	}
   } 
 
   
-  pubTarget.publish(target);
-
+  
+#ifdef SHOWIMG 
   // Show blobs
   imshow("blobsl", im_with_keypointsl);
   imshow("blobsr", im_with_keypointsr);
+#endif  
 }
 
 /*!
