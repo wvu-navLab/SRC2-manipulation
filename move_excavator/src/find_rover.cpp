@@ -32,12 +32,22 @@ FindRover::FindRover(ros::NodeHandle & nh)
   cv::setMouseCallback("originall", CallBackFunc, this);
 #endif  
   
-  // Node publishes individual joint positions
   pubMultiAgentState = nh_.advertise<move_excavator::MultiAgentState>("/multiAgent", 1000);
+  
   pubTarget = nh_.advertise<geometry_msgs::PointStamped>("manipulation/target_bin", 1000);
+  
+  pubSensorYaw = nh_.advertise<std_msgs::Float64>("sensor/yaw/command/position", 1000);
 
-  //subImgNoSync.registerCallback(&FindRover::imageCallback, this);
-  subLaserScan = nh_.subscribe("laser/scan", 1000, &FindRover::laserCallback, this);
+  // Service Servers
+  serverFindHauler = nh_.advertiseService("manipulation/find_hauler", &FindRover::FindHauler, this);
+  
+  // Service Clients
+  clientSpotLight = nh_.serviceClient<srcp2_msgs::SpotLightSrv>("spot_light");
+  
+  // Subscribers
+  //subLaserScan = nh_.subscribe("laser/scan", 1000, &FindRover::laserCallback, this);
+  
+  subJointStates = nh_.subscribe("joint_states", 1, &FindRover::jointStateCallback, this);
   
   right_image_sub.subscribe(nh_,"camera/right/image_raw", 1);
   left_image_sub.subscribe(nh_,"camera/left/image_raw", 1);
@@ -46,6 +56,17 @@ FindRover::FindRover(ros::NodeHandle & nh)
   
   sync.registerCallback(boost::bind(&FindRover::imageCallback,this, _1, _2, _3, _4));
   
+  iLowH_ = 0;
+  iHighH_ = 5;
+
+  iLowS_ = 130;
+  iHighS_ = 250;
+
+  iLowV_ = 100;
+  iHighV_ = 255;
+  
+  currSensorYaw_=0.0;
+  
 }
 
 FindRover::~FindRover()
@@ -53,7 +74,7 @@ FindRover::~FindRover()
   cv::destroyAllWindows();
 }
 
-void FindRover::laserCallback(const sensor_msgs::LaserScan::ConstPtr &msg)
+/*void FindRover::laserCallback(const sensor_msgs::LaserScan::ConstPtr &msg)
 {
   int size = msg->ranges.size();
   int minIndex = 0;
@@ -80,7 +101,7 @@ void FindRover::laserCallback(const sensor_msgs::LaserScan::ConstPtr &msg)
     m.isRoverInRange = false;
   }
   pubMultiAgentState.publish(m);
-}
+}*/
 
 
 bool FindRover::compareKeypoints(const cv::KeyPoint &k1, const cv::KeyPoint &k2)
@@ -89,21 +110,125 @@ bool FindRover::compareKeypoints(const cv::KeyPoint &k1, const cv::KeyPoint &k2)
   	else return false;
 }
 
+void FindRover::jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg)
+{
+  // Find current angles and position
+  int sensor_bar_yaw_joint_idx;
+
+  // loop joint states
+  for (int i = 0; i < msg->name.size(); i++) {
+    if (msg->name[i] == "sensor_bar_yaw_joint") {
+      sensor_bar_yaw_joint_idx = i;
+    }
+  }
+
+ currSensorYaw_ = msg->position[sensor_bar_yaw_joint_idx];  
+}
+
+bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excavator::FindHauler::Response &res)
+{
+  //turn on the light
+  srcp2_msgs::SpotLightSrv srv;
+  srv.request.range = 20;
+  clientSpotLight.call(srv);
+  
+  ros::Duration timeout(req.timeLimit);
+	
+  cv::Mat hsv_imagel;
+  // Setup SimpleBlobDetector parameters.
+  cv::SimpleBlobDetector::Params params;
+
+  // Filter by Area.
+  params.filterByColor = false;
+  params.blobColor = 255;
+
+  // Filter by Area.
+  params.filterByArea = true;
+  params.minArea = 4000;
+  params.maxArea = 2000000;
+
+  // Filter by Circularity
+  params.filterByCircularity = false;
+  params.minCircularity = 0.1;
+
+  // Filter by Convexity
+  params.filterByConvexity = false;
+  params.minConvexity = 0.1;
+
+  // Filter by Inertia
+  params.filterByInertia = false;
+  params.minInertiaRatio = 0.01;
+  
+  // SimpleBlobDetector::create creates a smart pointer.
+  // Set up detector with params
+  cv::Ptr<cv::SimpleBlobDetector> detector = cv::SimpleBlobDetector::create(params);
+
+  // Detect blobs.
+  std::vector<cv::KeyPoint> keypointsl, keypointsr;
+  
+  ros::Time start_time = ros::Time::now();
+  
+  do{
+  
+  	ros::spinOnce();
+  	cv::cvtColor(raw_imagel_, hsv_imagel, CV_BGR2HSV);
+ 	// cv::imshow("hsv_imagel", hsv_imagel);
+    
+  	cv::Mat imgThresholdedl;
+  	cv::inRange(hsv_imagel, cv::Scalar(iLowH_, iLowS_, iLowV_), cv::Scalar(iHighH_, iHighS_, iHighV_), imgThresholdedl); 
+  	cv::dilate(imgThresholdedl,imgThresholdedl, cv::Mat(), cv::Point(-1, -1), 2);
+  	cv::erode(imgThresholdedl,imgThresholdedl, cv::Mat(), cv::Point(-1, -1), 3);
+   
+  	detector->detect( imgThresholdedl, keypointsl);
+  
+  	// Draw detected blobs as red circles.
+  
+//#ifdef SHOWIMG  
+  	cv::Mat im_with_keypointsl; 
+  	cv::drawKeypoints( imgThresholdedl, keypointsl, im_with_keypointsl, cv::Scalar(0,0,255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
+//#endif
+	
+	
+	if (keypointsl.size() > 0)
+  	{
+ 		// Sort the keypoints in order of area
+ 		std::sort(keypointsl.begin(), keypointsl.end(), compareKeypoints);
+ 	 	
+ 		/*for (int i=0;i<keypointsl.size();i++){
+ 		ROS_INFO("Left: Area %f", keypointsl[i].size);
+ 		}
+ 	
+ 		ROS_INFO("____");*/
+ 	
+ 	
+ 		int i=0; // Get the larger keypoints in each camera
+ 	
+ 	
+ 		double error = -keypointsl[i].pt.x;
+ 	
+ 	        res.success = true;
+ 		return true;
+   	}
+   	else 
+   	{
+   	       std_msgs::Float64 nextAngle;
+   	       nextAngle.data=(currSensorYaw_+2.0);;
+               pubSensorYaw.publish(nextAngle);
+               
+   
+   	}
+   	ros::Duration(0.5).sleep();
+   }	
+   while ((ros::Time::now() - start_time) < timeout);
+	
+   res.success = false;
+   return false;
+   
+}
+
 void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sensor_msgs::CameraInfoConstPtr& info_msgl, const sensor_msgs::ImageConstPtr& msgr, const sensor_msgs::CameraInfoConstPtr& info_msgr)
 {
-  int iLowH = 0;
-  int iHighH = 5;
-
-  int iLowS = 130;
-  int iHighS = 250;
-
-  int iLowV = 100;
-  int iHighV = 255;
-
-  target.header = msgl->header;
-  target.point.x = 0;
-  target.point.y = 0;
-  target.point.z = 0;
+  
 
   cv_bridge::CvImagePtr cv_ptr;
   try
@@ -119,10 +244,7 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
     return;
   }
   
-  cv::Mat raw_image = cv_ptr->image;
-  cv::Mat hsv_imagel;
-  cv::cvtColor(raw_image, hsv_imagel,CV_BGR2HSV);
- // cv::imshow("hsv_imagel", hsv_imagel);
+  raw_imagel_ = cv_ptr->image;
   
   try
   {
@@ -137,23 +259,31 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
     return;
   }
 
-  raw_image = cv_ptr->image;
-  cv::Mat hsv_imager;
-  cv::cvtColor(raw_image, hsv_imager,CV_BGR2HSV);
- // cv::imshow("hsv_imager", hsv_imager);
- 
+  raw_imager_ = cv_ptr->image;
   
+  target.header = msgl->header;
+  
+  ////////////////////////////////////////
+  
+      
+  cv::Mat hsv_imagel;
+  cv::cvtColor(raw_imagel_, hsv_imagel, CV_BGR2HSV);
+ // cv::imshow("hsv_imagel", hsv_imagel);
+  
+  cv::Mat hsv_imager;
+  cv::cvtColor(raw_imager_, hsv_imager, CV_BGR2HSV);
+ // cv::imshow("hsv_imager", hsv_imager);
+   
   //cv::Vec3b hsvPixel = hsv_imagel.at<cv::Vec3b>(280,484);
   //ROS_INFO("%d %d %d", hsvPixel.val[0], hsvPixel.val[1], hsvPixel.val[2] );
-
   
   cv::Mat imgThresholdedl;
-  cv::inRange(hsv_imagel, cv::Scalar(iLowH, iLowS, iLowV), cv::Scalar(iHighH, iHighS, iHighV), imgThresholdedl); 
+  cv::inRange(hsv_imagel, cv::Scalar(iLowH_, iLowS_, iLowV_), cv::Scalar(iHighH_, iHighS_, iHighV_), imgThresholdedl); 
   cv::dilate(imgThresholdedl,imgThresholdedl, cv::Mat(), cv::Point(-1, -1), 2);
   cv::erode(imgThresholdedl,imgThresholdedl, cv::Mat(), cv::Point(-1, -1), 3);
   
   cv::Mat imgThresholdedr;
-  cv::inRange(hsv_imager, cv::Scalar(iLowH, iLowS, iLowV), cv::Scalar(iHighH, iHighS, iHighV), imgThresholdedr); 
+  cv::inRange(hsv_imager, cv::Scalar(iLowH_, iLowS_, iLowV_), cv::Scalar(iHighH_, iHighS_, iHighV_), imgThresholdedr); 
   cv::dilate(imgThresholdedr,imgThresholdedr, cv::Mat(), cv::Point(-1, -1), 2);
   cv::erode(imgThresholdedr,imgThresholdedr, cv::Mat(), cv::Point(-1, -1), 3);
   

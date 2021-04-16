@@ -74,6 +74,7 @@ add_service_files(
   ExcavatorFK.srv
   GoToPose.srv
   ControlInvJac.srv
+  FindHauler.srv
 )
 
 ## Generate actions in the 'action' folder
