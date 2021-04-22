@@ -28,9 +28,10 @@ FindRover::FindRover(ros::NodeHandle & nh)
   yimg=0;
 #ifdef SHOWIMG  
   cv::namedWindow("originall");
-  cv::startWindowThread(); 
+  //cv::startWindowThread(); 
   cv::setMouseCallback("originall", CallBackFunc, this);
 #endif  
+  cv::startWindowThread();
   
   pubMultiAgentState = nh_.advertise<move_excavator::MultiAgentState>("/multiAgent", 1000);
   
@@ -127,6 +128,8 @@ void FindRover::jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg)
 
 bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excavator::FindHauler::Response &res)
 {
+
+  ROS_INFO("Service FindHauler Called");
   //turn on the light
   srcp2_msgs::SpotLightSrv srv;
   srv.request.range = 20;
@@ -186,6 +189,7 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
 //#ifdef SHOWIMG  
   	cv::Mat im_with_keypointsl; 
   	cv::drawKeypoints( imgThresholdedl, keypointsl, im_with_keypointsl, cv::Scalar(0,0,255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
+  	imshow("blobsl", im_with_keypointsl);
 //#endif
 	
 	
@@ -212,7 +216,8 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
    	else 
    	{
    	       std_msgs::Float64 nextAngle;
-   	       nextAngle.data=(currSensorYaw_+2.0);;
+   	       nextAngle.data=M_PI/2.0;//(currSensorYaw_+2);
+   	       
                pubSensorYaw.publish(nextAngle);
                
    
@@ -220,6 +225,7 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
    	ros::Duration(0.5).sleep();
    }	
    while ((ros::Time::now() - start_time) < timeout);
+   ROS_INFO("TimeOut");
 	
    res.success = false;
    return false;
