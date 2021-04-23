@@ -1,3 +1,4 @@
 float64 timeLimit
 ---
+geometry_msgs/PointStamped target
 bool success

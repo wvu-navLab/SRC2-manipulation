@@ -10,6 +10,10 @@
 
 #include "move_excavator/find_rover.h"
 
+template <typename T> int sgn(T val) {
+    return (T(0) < val) - (val < T(0));
+}
+
 //#define SHOWIMG
 
 void FindRover::CallBackFunc(int event, int x, int y, int flags, void* userdata)
@@ -28,10 +32,10 @@ FindRover::FindRover(ros::NodeHandle & nh)
   yimg=0;
 #ifdef SHOWIMG  
   cv::namedWindow("originall");
-  //cv::startWindowThread(); 
+  cv::startWindowThread(); 
   cv::setMouseCallback("originall", CallBackFunc, this);
 #endif  
-  cv::startWindowThread();
+  
   
   pubMultiAgentState = nh_.advertise<move_excavator::MultiAgentState>("/multiAgent", 1000);
   
@@ -67,6 +71,7 @@ FindRover::FindRover(ros::NodeHandle & nh)
   iHighV_ = 255;
   
   currSensorYaw_=0.0;
+  direction_ = 1;
   
 }
 
@@ -147,7 +152,7 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
 
   // Filter by Area.
   params.filterByArea = true;
-  params.minArea = 4000;
+  params.minArea = 5000;
   params.maxArea = 2000000;
 
   // Filter by Circularity
@@ -169,8 +174,11 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
   // Detect blobs.
   std::vector<cv::KeyPoint> keypointsl, keypointsr;
   
-  ros::Time start_time = ros::Time::now();
+  std_msgs::Float64 nextAngle;
   
+  
+  ros::Time start_time = ros::Time::now();
+     
   do{
   
   	ros::spinOnce();
@@ -187,9 +195,9 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
   	// Draw detected blobs as red circles.
   
 //#ifdef SHOWIMG  
-  	cv::Mat im_with_keypointsl; 
-  	cv::drawKeypoints( imgThresholdedl, keypointsl, im_with_keypointsl, cv::Scalar(0,0,255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
-  	imshow("blobsl", im_with_keypointsl);
+  	//cv::Mat im_with_keypointsl; 
+  	//cv::drawKeypoints( imgThresholdedl, keypointsl, im_with_keypointsl, cv::Scalar(0,0,255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
+  	//imshow("blobsl", im_with_keypointsl);
 //#endif
 	
 	
@@ -207,28 +215,42 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
  	
  		int i=0; // Get the larger keypoints in each camera
  	
+ 	        // Error to the center of the image
+ 		double error = (raw_imagel_.cols)/2.0-keypointsl[i].pt.x;
+ 		//ROS_INFO("Error %f, Center: %f, Keypoint: %f", error, (raw_imagel_.cols)/2.0, keypointsl[i].pt.x );
+ 		
+ 		if (fabs(error) < 5){
+ 		
+ 		        ComputeHaulerPosition();
+ 		        
+ 			res.success = true;
+ 			res.target = target_;
+ 			return true;
+ 		}
+ 		 
+   	        nextAngle.data= currSensorYaw_+sgn(error)*M_PI/90;   	       
+                pubSensorYaw.publish(nextAngle);
  	
- 		double error = -keypointsl[i].pt.x;
- 	
- 	        res.success = true;
- 		return true;
    	}
    	else 
    	{
-   	       std_msgs::Float64 nextAngle;
-   	       nextAngle.data=M_PI/2.0;//(currSensorYaw_+2);
+   	       
+   	       if (currSensorYaw_<-(M_PI-M_PI/4))
+   	       	direction_ = 1;
+   	       if (currSensorYaw_>(M_PI-M_PI/4))
+   	       	direction_ = -1;	
+   	       nextAngle.data=(currSensorYaw_+direction_*M_PI/45);
    	       
                pubSensorYaw.publish(nextAngle);
                
-   
    	}
-   	ros::Duration(0.5).sleep();
+   	
    }	
    while ((ros::Time::now() - start_time) < timeout);
    ROS_INFO("TimeOut");
 	
    res.success = false;
-   return false;
+   return true;
    
 }
 
@@ -251,6 +273,7 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
   }
   
   raw_imagel_ = cv_ptr->image;
+  info_msgl_ = *info_msgl;
   
   try
   {
@@ -266,12 +289,17 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
   }
 
   raw_imager_ = cv_ptr->image;
+  info_msgr_ = *info_msgr;
   
-  target.header = msgl->header;
+  target_.header = msgl->header;
   
   ////////////////////////////////////////
   
+}
       
+      
+void FindRover::ComputeHaulerPosition()
+{    
   cv::Mat hsv_imagel;
   cv::cvtColor(raw_imagel_, hsv_imagel, CV_BGR2HSV);
  // cv::imshow("hsv_imagel", hsv_imagel);
@@ -306,7 +334,7 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
 
   // Filter by Area.
   params.filterByArea = true;
-  params.minArea = 4000;
+  params.minArea = 5000;
   params.maxArea = 2000000;
 
   // Filter by Circularity
@@ -366,21 +394,21 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
 			//check epipolar constraint
      			 if(offset < 5 && offset > -5)
 			{
-				double cx = (double) info_msgl->P[2];
-				double cy = (double) info_msgl->P[6];
-				double sx = (double) info_msgl->P[0];
-				double sy = (double) info_msgl->P[5];
-				double bl = (double) (-(double)info_msgr->P[3]/info_msgr->P[0]);
+				double cx = (double) info_msgl_.P[2];
+				double cy = (double) info_msgl_.P[6];
+				double sx = (double) info_msgl_.P[0];
+				double sy = (double) info_msgl_.P[5];
+				double bl = (double) (-(double)info_msgr_.P[3]/info_msgr_.P[0]);
 
-				double z = sx/disparity*bl;
-				double x = (keypointsl[i].pt.x-cx)/sx*z;
-				double y = (keypointsl[i].pt.y-cy)/sy*z;
+				z_ = sx/disparity*bl;
+				x_ = (keypointsl[i].pt.x-cx)/sx*z_;
+				y_ = (keypointsl[i].pt.y-cy)/sy*z_;
 			
-				//ROS_INFO("(%f,%f,%f)", x, y, z);
-				target.point.x = x;
-        			target.point.y = y;
-        			target.point.z = z;
-        			pubTarget.publish(target);
+				ROS_INFO("(%f,%f,%f)", x_, y_, z_);
+				target_.point.x = x_;
+        			target_.point.y = y_;
+        			target_.point.z = z_;
+        			pubTarget.publish(target_);
 			}
 		}
 	}

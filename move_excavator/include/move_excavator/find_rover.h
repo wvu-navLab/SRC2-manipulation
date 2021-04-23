@@ -54,6 +54,7 @@ public:
     
     bool FindHauler(move_excavator::FindHauler::Request  &req, move_excavator::FindHauler::Response &res);
     
+    void ComputeHaulerPosition();
     
     static void CallBackFunc(int event, int x, int y, int flags, void* userdata);
     void CallBackFunc(int event, int x, int y, int flags);
@@ -92,7 +93,7 @@ private:
 
     move_excavator::MultiAgentState m;
     
-    geometry_msgs::PointStamped target;
+    geometry_msgs::PointStamped target_;
     
     int ximg,yimg;
     
@@ -100,7 +101,11 @@ private:
     
     double currSensorYaw_;
     
+    int direction_;
+    
     cv::Mat raw_imagel_, raw_imager_;
+    sensor_msgs::CameraInfo info_msgl_, info_msgr_;
+    double x_, y_, z_;
     
     bool static compareKeypoints(const cv::KeyPoint &k1, const cv::KeyPoint &k2);
 };
