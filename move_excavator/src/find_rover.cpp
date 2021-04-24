@@ -176,12 +176,14 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
   
   std_msgs::Float64 nextAngle;
   
+  long int currentFrameId;
   
   ros::Time start_time = ros::Time::now();
      
   do{
   
   	ros::spinOnce();
+  	currentFrameId = target_.header.seq;
   	cv::cvtColor(raw_imagel_, hsv_imagel, CV_BGR2HSV);
  	// cv::imshow("hsv_imagel", hsv_imagel);
     
@@ -221,6 +223,8 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
  		
  		if (fabs(error) < 5){
  		
+ 			ros::spinOnce();
+ 			ros::Duration(0.5).sleep();
  		        ComputeHaulerPosition();
  		        
  			res.success = true;
@@ -244,7 +248,12 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
                pubSensorYaw.publish(nextAngle);
                
    	}
-   	
+   	// Wait for new frame -> this is important to free the processor
+   	while ((currentFrameId == target_.header.seq) && ((ros::Time::now() - start_time) < timeout)){
+   		ros::spinOnce();
+   		ros::Duration(0.03).sleep();
+   	}
+   		
    }	
    while ((ros::Time::now() - start_time) < timeout);
    ROS_INFO("TimeOut");
