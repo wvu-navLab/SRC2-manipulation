@@ -174,32 +174,36 @@ Eigen::MatrixXd MoveArm::transl(double x, double y, double z)
  * ------------------- JOINT TRAJECTORY FUNCTION ---------------------
  *------------------------------------------------------------------*/
 
-Eigen::MatrixXd MoveArm::jtraj(Eigen::VectorXd q0, Eigen::VectorXd q1, int steps)
+Eigen::MatrixXd MoveArm::jtraj(Eigen::VectorXd q0, Eigen::VectorXd q1, int n_steps)
 { 
   int n_joints = q0.size();
   int time_scale = 1;
-  Eigen::VectorXd time = Eigen::VectorXd::Zero(steps);
+  Eigen::VectorXd time = Eigen::VectorXd::Zero(n_steps);
 
-  for (int i=0; i < steps; i++)
+  for (int i=0; i < n_steps; i++)
   {
-    time(i) = i/(steps-1); // normalized time from 0 -> 1
+    time(i) = (double) i/(n_steps-1); // normalized time from 0 -> 1
   }
+
+  // ROS_INFO_STREAM("Time vector:" << time);
 
   // Compute the polynomial coefficients
-  Eigen::MatrixXd poly_coeffs = Eigen::VectorXd::Zero(n_joints,steps);
+  int n_coeffs = 6;
+  Eigen::MatrixXd poly_coeffs = Eigen::MatrixXd::Zero(n_coeffs,n_joints);
   for (int i = 0; i < n_joints; i++)
   {
-    poly_coeffs(i,0) = 6*(q1(i) - q0(i));
-    poly_coeffs(i,1) = -15*(q1(i) - q0(i));
-    poly_coeffs(i,2) = 10*(q1(i) - q0(i));
-    poly_coeffs(i,3) = 0; 
-    poly_coeffs(i,4) = 0;
-    poly_coeffs(i,5) = q0(i);
+    poly_coeffs(0,i) = 6*(q1(i) - q0(i));
+    poly_coeffs(1,i) = -15*(q1(i) - q0(i));
+    poly_coeffs(2,i) = 10*(q1(i) - q0(i));
+    poly_coeffs(3,i) = 0; 
+    poly_coeffs(4,i) = 0;
+    poly_coeffs(5,i) = q0(i);
   }
 
+  // ROS_INFO_STREAM("Poly coeffs matrix:" << poly_coeffs);
   // Compute the coordinates
-  Eigen::MatrixXd time_matrix = Eigen::VectorXd::Zero(n_joints,steps);
-  for (int i = 0; i < n_joints; i++)
+  Eigen::MatrixXd time_matrix = Eigen::MatrixXd::Zero(n_steps,n_coeffs);
+  for (int i = 0; i < n_steps; i++)
   {
     time_matrix(i,0) = pow(time(i),5);
     time_matrix(i,1) = pow(time(i),4);
@@ -209,9 +213,11 @@ Eigen::MatrixXd MoveArm::jtraj(Eigen::VectorXd q0, Eigen::VectorXd q1, int steps
     time_matrix(i,5) = 1;
   }
   
-  Eigen::MatrixXd traj = Eigen::VectorXd::Zero(steps,n_joints);
+  // ROS_INFO_STREAM("Time matrix:" << time_matrix);
+  Eigen::MatrixXd traj = Eigen::MatrixXd::Zero(n_steps,n_joints);
 
-  traj = time_matrix * poly_coeffs.transpose();
+  traj = time_matrix * poly_coeffs;
+  // ROS_INFO_STREAM("Traj matrix:" << traj);
 
   return traj;
 }
@@ -374,18 +380,21 @@ bool MoveArm::GoToPose(move_excavator::GoToPose::Request  &req, move_excavator::
 {
   Eigen::VectorXd goal_xyzp = Eigen::VectorXd::Zero(4);
   Eigen::VectorXd start_joints = Eigen::VectorXd::Zero(4);
-  Eigen::VectorXd goal_joints = Eigen::VectorXd::Zero(4);
 
   ros::spinOnce();
   start_joints << q1_curr_, q2_curr_, q3_curr_,q4_curr_;
+  ROS_INFO_STREAM("Starting joint angles:" << start_joints);
 
   double timeout = req.timeLimit;
   goal_xyzp << req.goal.pose.position.x, req.goal.pose.position.y, req.goal.pose.position.z, -PI/2;
+  ROS_INFO_STREAM("Goal XYZP:" << goal_xyzp);
 
-  goal_joints = solveIK(goal_xyzp);
+  Eigen::VectorXd goal_joints = solveIK(goal_xyzp);
+  ROS_INFO_STREAM("Goal joint angles:" << goal_joints);
 
   int steps = 50;
   Eigen::MatrixXd trajectory = jtraj(start_joints, goal_joints, steps);
+  ROS_INFO_STREAM("Trajectory:" << trajectory);
 
   motion_control::ArmGroup q;
   for (int i = 0; i<steps; i++) 
@@ -395,10 +404,12 @@ bool MoveArm::GoToPose(move_excavator::GoToPose::Request  &req, move_excavator::
     q.q3 = trajectory(i,2);
     q.q4 = trajectory(i,3);
     pubJointAngles.publish(q);
+    // ROS_INFO_STREAM("Published joint angle cmds:" << q);
     ros::Duration(timeout/steps).sleep();
   }
 
   res.success = true;
+  ROS_INFO_STREAM("Success:" <<  res.success);
   
   return true;
 }
@@ -462,40 +473,40 @@ geometry_msgs::PoseStamped MoveArm::solveFK(double q1, double q2, double q3, dou
  * ----------------- INVERSE KINEMATICS FUNCTIONS --------------------
  *------------------------------------------------------------------*/
 
-Eigen::VectorXd MoveArm::solveIK(Eigen::VectorXd goal)
+Eigen::VectorXd MoveArm::solveIK(Eigen::VectorXd goal_xyzp)
 {
   // End effector position
-  double x_goal = goal(0);
-  double y_goal = goal(1);
-  double z_goal = goal(2);
-  double phi_goal = goal(3);
+  double x_goal = goal_xyzp(0);
+  double y_goal = goal_xyzp(1);
+  double z_goal = goal_xyzp(2);
+  double phi_goal = goal_xyzp(3);
 
-  // double r = sqrt(x_goal*x_goal + y_goal*y_goal);
-  // double r_E = r - a4_*cos(phi_goal);
-  // double z_E = z_goal - d0_ - d1_ - a4_*sin(phi_goal);
-  // double D = sqrt(z_E*z_E + r_E*r_E);
+  double r_goal = sqrt(x_goal*x_goal + y_goal*y_goal);
+  double r_E = r_goal - a1_ - a4_*cos(phi_goal);
+  double z_E = z_goal - d1_ - a4_*sin(phi_goal);
+  double D = sqrt(z_E*z_E + r_E*r_E);
 
-  // double gamma = atan2(-z_E/D, -r_E/D) ;
+  double gamma = atan2(-z_E, -r_E) ;
 
-  // double q1_goal = atan2(y_goal,x_goal);
-  // double q2_goal = gamma - acos(-(r_E*r_E + z_E*z_E + a2_*a2_ - a3_*a3_)/(2*a2_*D));
-  // double q3_goal = atan2((z_E-l2*sin(q2_goal))/a3_,(r_E-a2_*cos(q2_goal))/a3_);
-  // double q4_goal = phi_goal- (q2_goal + q3_goal);
+  double q1_goal = atan2(y_goal,x_goal);
+  double q2_goal = gamma + acos(-(r_E*r_E + z_E*z_E + a2_*a2_ - a3_*a3_)/(2*a2_*D));
+  double q3_goal = atan2((z_E-a2_*sin(q2_goal))/a3_,(r_E-a2_*cos(q2_goal))/a3_);
+  double q4_goal = phi_goal- (q2_goal + q3_goal);
 
-  // printf ("The goal joint angles are q = (%2.2f, %2.2f, %2.2f, %2.2f).\n", q1_goal, q2_goal, q3_goal, q4_goal);
+  printf ("The goal joint angles are q = (%2.2f, %2.2f, %2.2f, %2.2f).\n", q1_goal, q2_goal, q3_goal, q4_goal);
 
-  // constrainAngle(q1_goal); constrainAngle(q2_goal); constrainAngle(q3_goal); constrainAngle(q4_goal);
+  constrainAngle(q1_goal); constrainAngle(q2_goal); constrainAngle(q3_goal); constrainAngle(q4_goal);
 
-  // printf ("The constrained goal joint angles are q = (%2.2f, %2.2f, %2.2f, %2.2f).\n", q1_goal, q2_goal, q3_goal, q4_goal);
+  printf ("The constrained goal joint angles are q = (%2.2f, %2.2f, %2.2f, %2.2f).\n", q1_goal, q2_goal, q3_goal, q4_goal);
 
-  // limitJoint(q1_goal, JOINT1_MAX, JOINT1_MIN); limitJoint(q2_goal, JOINT2_MAX, JOINT2_MIN);
-  // limitJoint(q3_goal, JOINT3_MAX, JOINT3_MIN); limitJoint(q4_goal, JOINT4_MAX, JOINT4_MIN);
+  limitJoint(q1_goal, JOINT1_MAX, JOINT1_MIN); limitJoint(q2_goal, JOINT2_MAX, JOINT2_MIN);
+  limitJoint(q3_goal, JOINT3_MAX, JOINT3_MIN); limitJoint(q4_goal, JOINT4_MAX, JOINT4_MIN);
 
-  // printf ("The constrained goal joint angles with limits are q = (%2.2f, %2.2f, %2.2f, %2.2f).\n", q1_goal, q2_goal, q3_goal, q4_goal);
+  printf ("The constrained goal joint angles with limits are q = (%2.2f, %2.2f, %2.2f, %2.2f).\n", q1_goal, q2_goal, q3_goal, q4_goal);
 
   Eigen::VectorXd q = Eigen::VectorXd::Zero(4);
 
-  // q << q1_goal, q2_goal, q3_goal, q4_goal;
+  q << q1_goal, q2_goal, q3_goal, q4_goal;
 
   return q;
 }
