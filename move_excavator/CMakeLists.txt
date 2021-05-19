@@ -158,9 +158,9 @@ include_directories(
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/move_arm_node.cpp)
 
-add_executable(manipulation src/manipulation.cpp)
-target_link_libraries(manipulation ${catkin_LIBRARIES})
-add_dependencies(manipulation move_excavator_generate_messages_cpp)
+# add_executable(manipulation src/manipulation.cpp)
+# target_link_libraries(manipulation ${catkin_LIBRARIES})
+# add_dependencies(manipulation move_excavator_generate_messages_cpp)
 
 add_executable(move_arm src/move_arm.cpp)
 target_link_libraries(move_arm ${catkin_LIBRARIES})
@@ -185,9 +185,9 @@ add_dependencies(find_rover move_excavator_generate_messages_cpp)
 #   ${catkin_LIBRARIES}
 # )
 
-target_link_libraries(manipulation
-  ${catkin_LIBRARIES}
-)
+# target_link_libraries(manipulation
+#   ${catkin_LIBRARIES}
+# )
 
 target_link_libraries(move_arm
   ${catkin_LIBRARIES}

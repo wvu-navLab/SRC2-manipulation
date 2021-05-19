@@ -11,7 +11,8 @@
 #include "move_excavator/move_arm.h"
 
 MoveArm::MoveArm(ros::NodeHandle & nh)
-: nh_(nh)
+: nh_(nh),
+  tf2_listener(tf_buffer)
 {
   // Node publishes individual joint positions
   pubJointAngles = nh_.advertise<motion_control::ArmGroup>("control/arm/joint_angles", 1);
@@ -378,6 +379,17 @@ bool MoveArm::ExcavatorFK(move_excavator::ExcavatorFK::Request  &req, move_excav
 
 bool MoveArm::GoToPose(move_excavator::GoToPose::Request  &req, move_excavator::GoToPose::Response &res)
 {
+  ROS_INFO_STREAM("MANIPULATION: Target point. Point:" << req.goal);
+
+  camera_link_to_arm_mount = tf_buffer.lookupTransform(robot_name_+"_arm_mount", robot_name_+"_left_camera_optical", ros::Time(0), ros::Duration(1.0));
+  tf2::doTransform(req.goal, goal_point_, camera_link_to_arm_mount);
+
+  goal_point_.point.x -= 0.7;
+  goal_point_.point.z -= 0.1;
+
+  ROS_INFO_STREAM("MANIPULATION: Target new frame updated. Point:" << goal_point_);
+
+
   Eigen::VectorXd goal_xyzp = Eigen::VectorXd::Zero(4);
   Eigen::VectorXd start_joints = Eigen::VectorXd::Zero(4);
 
@@ -386,7 +398,7 @@ bool MoveArm::GoToPose(move_excavator::GoToPose::Request  &req, move_excavator::
   ROS_INFO_STREAM("Starting joint angles:" << start_joints);
 
   double timeout = req.timeLimit;
-  goal_xyzp << req.goal.pose.position.x, req.goal.pose.position.y, req.goal.pose.position.z, -PI/2;
+  goal_xyzp << req.goal.point.x, req.goal.point.y, req.goal.point.z, -PI/2;
   ROS_INFO_STREAM("Goal XYZP:" << goal_xyzp);
 
   Eigen::VectorXd goal_joints = solveIK(goal_xyzp);
