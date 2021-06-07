@@ -53,7 +53,7 @@ MoveArm::MoveArm(ros::NodeHandle & nh)
 
   node_name_ ="move_arm";
   // Read params from yaml file
-  if (ros::param::get(node_name_ + "/robot_name", robot_name_) == false)
+  if (ros::param::get("robot_name", robot_name_) == false)
   {
       ROS_FATAL("No parameter 'robot_name_' specified");
       ros::shutdown();
