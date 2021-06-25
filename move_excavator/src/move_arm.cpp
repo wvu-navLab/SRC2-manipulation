@@ -263,7 +263,7 @@ bool MoveArm::LowerArm(move_excavator::LowerArm::Request  &req, move_excavator::
     q.q3 = PI/2;
     q.q4 = -PI/2; // + PITCH
     pubJointAngles.publish(q);
-    ros::Duration(timeout/100).sleep();
+    ros::Duration(timeout/100.0).sleep();
   }
   return true;
 }
@@ -283,7 +283,7 @@ bool MoveArm::Scoop(move_excavator::Scoop::Request  &req, move_excavator::Scoop:
     q.q3 = PI/2-i*JOINT2_MAX/100;
     q.q4 = -PI/2; // + PITCH
     pubJointAngles.publish(q);
-    ros::Duration(timeout/100).sleep();
+    ros::Duration(timeout/100.0).sleep();
   }
 
   return true;
@@ -304,7 +304,7 @@ bool MoveArm::AfterScoop(move_excavator::AfterScoop::Request  &req, move_excavat
     q.q3 = PI/2-i*JOINT2_MIN/100;
     q.q4 = -PI/2; // + PITCH
     pubJointAngles.publish(q);
-    ros::Duration(timeout/100).sleep();
+    ros::Duration(timeout/100.0).sleep();
   }
 
   return true;
@@ -325,7 +325,7 @@ bool MoveArm::ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator
     q.q3 = JOINT3_MAX-i*(PI/2)/100;
     q.q4 = -PI/2+i*(PI/2)/100; // + PITCH
     pubJointAngles.publish(q);
-    ros::Duration(timeout/100).sleep();
+    ros::Duration(timeout/100.0).sleep();
   }
 
  for (int i = 0; i<101; i++) 
@@ -335,7 +335,7 @@ bool MoveArm::ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator
     q.q3 = JOINT3_MAX-(PI/2);
     q.q4 = -PI/2+(PI/2); // + PITCH
     pubJointAngles.publish(q);
-    ros::Duration(timeout/100).sleep();
+    ros::Duration(timeout/100.0).sleep();
   }
 
   return true;
@@ -351,12 +351,12 @@ bool MoveArm::DropVolatile(move_excavator::DropVolatile::Request  &req, move_exc
   motion_control::ArmGroup q;
   for (int i = 0; i<101; i++) 
   {
-    q.q1 = heading_goal;
-    q.q2 = JOINT2_MIN;
-    q.q3 = JOINT3_MAX-PI/2;
-    q.q4 = i*(PI/2)/100; // + PITCH
+    q.q1 = q1_curr_;
+    q.q2 = JOINT2_MIN+i*(PI/2800.0);
+    q.q3 = JOINT3_MAX-PI/2.0;
+    q.q4 = (float)i*(PI/120.0); // + PITCH
     pubJointAngles.publish(q);
-    ros::Duration(timeout/100).sleep();
+    ros::Duration(timeout/100.0).sleep();
   }
 
   return true;
@@ -382,23 +382,31 @@ bool MoveArm::GoToPose(move_excavator::GoToPose::Request  &req, move_excavator::
   ROS_INFO_STREAM("MANIPULATION: Target point. Point:" << req.goal);
 
   camera_link_to_arm_mount = tf_buffer.lookupTransform(robot_name_+"_arm_mount", robot_name_+"_left_camera_optical", ros::Time(0), ros::Duration(1.0));
+  req.goal.point.x+=0.15; // Centralize the scoup 
   tf2::doTransform(req.goal, goal_point_, camera_link_to_arm_mount);
 
+  // Correct displacement between the center of the rover and the base of the arm
+  // For some reason, the arm_mount frame is at the center of the drone.
   goal_point_.point.x -= 0.7;
   goal_point_.point.z -= 0.1;
 
   ROS_INFO_STREAM("MANIPULATION: Target new frame updated. Point:" << goal_point_);
 
+  
+  // Fake position for testing
+  //goal_point_.point.x = 0.75;
+  //goal_point_.point.y = 0.75;
+  //goal_point_.point.z = 0.5;
 
   Eigen::VectorXd goal_xyzp = Eigen::VectorXd::Zero(4);
   Eigen::VectorXd start_joints = Eigen::VectorXd::Zero(4);
 
   ros::spinOnce();
-  start_joints << q1_curr_, q2_curr_, q3_curr_,q4_curr_;
+  start_joints << q1_curr_, q2_curr_, q3_curr_, q4_curr_;
   ROS_INFO_STREAM("Starting joint angles:" << start_joints);
 
   double timeout = req.timeLimit;
-  goal_xyzp << req.goal.point.x, req.goal.point.y, req.goal.point.z, -PI/2;
+  goal_xyzp << goal_point_.point.x, goal_point_.point.y, goal_point_.point.z, -15.0*PI/180; // The angle must be -15 to avoid droping the volatiles. Ideally it would be 0.
   ROS_INFO_STREAM("Goal XYZP:" << goal_xyzp);
 
   Eigen::VectorXd goal_joints = solveIK(goal_xyzp);
@@ -417,7 +425,8 @@ bool MoveArm::GoToPose(move_excavator::GoToPose::Request  &req, move_excavator::
     q.q4 = trajectory(i,3);
     pubJointAngles.publish(q);
     // ROS_INFO_STREAM("Published joint angle cmds:" << q);
-    ros::Duration(timeout/steps).sleep();
+    ros::Duration(timeout/static_cast<double>(steps)).sleep();
+    
   }
 
   res.success = true;
@@ -498,16 +507,23 @@ Eigen::VectorXd MoveArm::solveIK(Eigen::VectorXd goal_xyzp)
   double z_E = z_goal - d1_ - a4_*sin(phi_goal);
   double D = sqrt(z_E*z_E + r_E*r_E);
 
-  double gamma = atan2(-z_E, -r_E) ;
+  double gamma = atan2(-z_E/D, -r_E/D) ;
 
   double q1_goal = atan2(y_goal,x_goal);
-  double q2_goal = gamma + acos(-(r_E*r_E + z_E*z_E + a2_*a2_ - a3_*a3_)/(2*a2_*D));
-  double q3_goal = atan2((z_E-a2_*sin(q2_goal))/a3_,(r_E-a2_*cos(q2_goal))/a3_);
+  //double q2_goal = gamma + acos(-(r_E*r_E + z_E*z_E + a2_*a2_ - a3_*a3_)/(2*a2_*D));
+  //double q3_goal = atan2((z_E-a2_*sin(q2_goal))/a3_,(r_E-a2_*cos(q2_goal))/a3_)-q2_goal;
+  // This ignores q2 and q3 given by IK
+  double q2_goal= JOINT2_MIN;      //q2
+  double q3_goal= JOINT3_MAX-PI/2; //q3 
+
   double q4_goal = phi_goal- (q2_goal + q3_goal);
 
   printf ("The goal joint angles are q = (%2.2f, %2.2f, %2.2f, %2.2f).\n", q1_goal, q2_goal, q3_goal, q4_goal);
 
-  constrainAngle(q1_goal); constrainAngle(q2_goal); constrainAngle(q3_goal); constrainAngle(q4_goal);
+  constrainAngle(q1_goal); constrainAngle(q2_goal); constrainAngle(q3_goal); 
+
+  q4_goal = phi_goal- (q2_goal + q3_goal);
+  constrainAngle(q4_goal);
 
   printf ("The constrained goal joint angles are q = (%2.2f, %2.2f, %2.2f, %2.2f).\n", q1_goal, q2_goal, q3_goal, q4_goal);
 

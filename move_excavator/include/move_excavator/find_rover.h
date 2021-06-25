@@ -54,7 +54,7 @@ public:
     
     bool FindHauler(move_excavator::FindHauler::Request  &req, move_excavator::FindHauler::Response &res);
     
-    void ComputeHaulerPosition();
+    bool ComputeHaulerPosition();
     
     static void CallBackFunc(int event, int x, int y, int flags, void* userdata);
     void CallBackFunc(int event, int x, int y, int flags);
@@ -66,7 +66,7 @@ private:
 
     // Subscribers
     ros::Publisher pubMultiAgentState;
-    ros::Publisher pubTarget, pubSensorYaw;
+    ros::Publisher pubSensorYaw;
 
     // Subscribers
     //ros::Subscriber subLaserScan;
