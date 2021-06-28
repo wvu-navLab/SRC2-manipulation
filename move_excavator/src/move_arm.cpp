@@ -236,7 +236,7 @@ bool MoveArm::HomeArm(move_excavator::HomeArm::Request  &req, move_excavator::Ho
   ROS_WARN_STREAM("Take me home, West Virginia.");
   // Message
   motion_control::ArmGroup q;
-  q.q1 = 0;
+  q.q1 = heading_goal;
   q.q2 = JOINT2_MIN;
   q.q3 = PI/2-JOINT2_MIN;
   q.q4 = -PI/2; // + PITCH
@@ -258,7 +258,7 @@ bool MoveArm::LowerArm(move_excavator::LowerArm::Request  &req, move_excavator::
   motion_control::ArmGroup q;
   for (int i = 0; i<101; i++) 
   {
-    q.q1 = 0;
+    q.q1 = heading_goal;
     q.q2 = 0;
     q.q3 = PI/2;
     q.q4 = -PI/2; // + PITCH
@@ -278,7 +278,7 @@ bool MoveArm::Scoop(move_excavator::Scoop::Request  &req, move_excavator::Scoop:
   motion_control::ArmGroup q;
   for (int i = 0; i<101; i++) 
   {
-    q.q1 = 0;
+    q.q1 = heading_goal;
     q.q2 = i*JOINT2_MAX/100;
     q.q3 = PI/2-i*JOINT2_MAX/100;
     q.q4 = -PI/2; // + PITCH
@@ -507,7 +507,7 @@ Eigen::VectorXd MoveArm::solveIK(Eigen::VectorXd goal_xyzp)
   double z_E = z_goal - d1_ - a4_*sin(phi_goal);
   double D = sqrt(z_E*z_E + r_E*r_E);
 
-  double gamma = atan2(-z_E/D, -r_E/D) ;
+  double gamma = atan2(-z_E, -r_E) ;
 
   double q1_goal = atan2(y_goal,x_goal);
   //double q2_goal = gamma + acos(-(r_E*r_E + z_E*z_E + a2_*a2_ - a3_*a3_)/(2*a2_*D));
