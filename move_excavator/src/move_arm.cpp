@@ -507,14 +507,15 @@ Eigen::VectorXd MoveArm::solveIK(Eigen::VectorXd goal_xyzp)
   double z_E = z_goal - d1_ - a4_*sin(phi_goal);
   double D = sqrt(z_E*z_E + r_E*r_E);
 
-  double gamma = atan2(-z_E/D, -r_E/D) ;
+  double gamma = atan2(-z_E, -r_E) ;
 
   double q1_goal = atan2(y_goal,x_goal);
-  //double q2_goal = gamma + acos(-(r_E*r_E + z_E*z_E + a2_*a2_ - a3_*a3_)/(2*a2_*D));
-  //double q3_goal = atan2((z_E-a2_*sin(q2_goal))/a3_,(r_E-a2_*cos(q2_goal))/a3_)-q2_goal;
+  double q2_goal = gamma + acos(-(r_E*r_E + z_E*z_E + a2_*a2_ - a3_*a3_)/(2*a2_*D));
+  double q3_goal = atan2((z_E-a2_*sin(q2_goal))/a3_,(r_E-a2_*cos(q2_goal))/a3_)-q2_goal;
+
   // This ignores q2 and q3 given by IK
-  double q2_goal= JOINT2_MIN;      //q2
-  double q3_goal= JOINT3_MAX-PI/2; //q3 
+  // double q2_goal= JOINT2_MIN;      //q2
+  // double q3_goal= JOINT3_MAX-PI/2; //q3 
 
   double q4_goal = phi_goal- (q2_goal + q3_goal);
 

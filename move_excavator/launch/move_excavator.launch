@@ -6,7 +6,7 @@
         output="screen">
     <rosparam
       command="load"
-      file="$(find move_excavator)/config/move_arm.yaml"
+      file="$(find move_excavator)/config/params.yaml"
       subst_value="true"
     />
   </node>
