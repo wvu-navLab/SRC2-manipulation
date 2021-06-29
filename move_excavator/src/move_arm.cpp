@@ -352,8 +352,8 @@ bool MoveArm::DropVolatile(move_excavator::DropVolatile::Request  &req, move_exc
   for (int i = 0; i<101; i++) 
   {
     q.q1 = q1_curr_;
-    q.q2 = JOINT2_MIN+i*(PI/2800.0);
-    q.q3 = JOINT3_MAX-PI/2.0;
+    q.q2 = q2_curr_+i*(PI/2800.0);
+    q.q3 = q3_curr_;
     q.q4 = (float)i*(PI/120.0); // + PITCH
     pubJointAngles.publish(q);
     ros::Duration(timeout/100.0).sleep();
