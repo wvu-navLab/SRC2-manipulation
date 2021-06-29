@@ -198,11 +198,11 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
   
   	// Draw detected blobs as red circles.
   
-//#ifdef SHOWIMG  
-  	//cv::Mat im_with_keypointsl; 
-  	//cv::drawKeypoints( imgThresholdedl, keypointsl, im_with_keypointsl, cv::Scalar(0,0,255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
-  	//imshow("blobsl", im_with_keypointsl);
-//#endif
+#ifdef SHOWIMG  
+  	cv::Mat im_with_keypointsl; 
+  	cv::drawKeypoints( imgThresholdedl, keypointsl, im_with_keypointsl, cv::Scalar(0,0,255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
+  	imshow("blobsl", im_with_keypointsl);
+#endif
 	
 	
 	if (keypointsl.size() > 0)
@@ -249,13 +249,14 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
    	else 
    	{
    	       
-   	       if (currSensorYaw_<-(M_PI-M_PI/4.0))
+   	       if (currSensorYaw_<-(M_PI-M_PI/20.0))
    	       	direction_ = 1;
    	       if (currSensorYaw_>(M_PI-M_PI/20.0))
    	       	direction_ = -1;	
            
-   	       nextAngle.data=(currSensorYaw_+direction_*M_PI/5.0);// /45.0);
-           //ROS_INFO("%f %f %f", nextAngle.data, currSensorYaw_, direction_*M_PI/10.0);  
+   	       //nextAngle.data=(currSensorYaw_+direction_*M_PI);// /45.0);
+           nextAngle.data = direction_*M_PI; 
+           //ROS_INFO("%f %f %d", nextAngle.data, currSensorYaw_, direction_);  
    	       
           pubSensorYaw.publish(nextAngle);
           ros::Duration(0.1).sleep();
@@ -270,6 +271,9 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
    		
    }	
    while ((ros::Time::now() - start_time) < timeout);
+
+   nextAngle.data= currSensorYaw_;   	       
+   pubSensorYaw.publish(nextAngle);
    ROS_INFO("FindHauler: TimeOut");
 	
    res.success = false;
