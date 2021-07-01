@@ -1,3 +1,4 @@
 motion_control/ArmGroup joints
+std_msgs/Bool use_current
 ---
 geometry_msgs/PoseStamped eePose
