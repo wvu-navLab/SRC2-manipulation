@@ -311,7 +311,7 @@ bool MoveArm::AfterScoop(move_excavator::AfterScoop::Request  &req, move_excavat
   motion_control::ArmGroup q;
   for (int i = 0; i<101; i++) 
   {
-    q.q1 = 0;
+    q.q1 = q1_curr_;
     q.q2 = i*JOINT2_MIN/100;
     q.q3 = PI/2-i*JOINT2_MIN/100;
     q.q4 = -PI/2; // + PITCH
