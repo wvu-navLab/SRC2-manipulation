@@ -29,7 +29,6 @@
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <geometry_msgs/PointStamped.h>
-#include <move_excavator/MultiAgentState.h>
 
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
@@ -65,7 +64,6 @@ private:
     ros::NodeHandle & nh_;
 
     // Subscribers
-    ros::Publisher pubMultiAgentState;
     ros::Publisher pubSensorYaw;
 
     // Subscribers
@@ -90,8 +88,6 @@ private:
     // Service Callers
     //ros::ServiceServer stopServer;
     //ros::ServiceServer rotateInPlaceServer;
-
-    move_excavator::MultiAgentState m;
     
     geometry_msgs::PointStamped target_;
     

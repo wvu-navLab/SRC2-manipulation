@@ -1,4 +1,5 @@
 float64 heading
 float64 timeLimit
+float64 range
 ---
 bool success

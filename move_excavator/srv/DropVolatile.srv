@@ -1,4 +1,4 @@
-float64 heading
+int64 type
 float64 timeLimit
 ---
 bool success

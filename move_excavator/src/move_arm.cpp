@@ -242,11 +242,10 @@ Eigen::MatrixXd MoveArm::Jtraj(Eigen::VectorXd q0, Eigen::VectorXd q1, int n_ste
 bool MoveArm::HomeArm(move_excavator::HomeArm::Request  &req, move_excavator::HomeArm::Response &res)
 {
   double heading_goal = req.heading;
-  double timeout = req.timeLimit;
+  double duration = req.timeLimit;
 
-  ROS_INFO_STREAM("HOME ARM.");
-  ROS_WARN_STREAM("Take me home, West Virginia.");
-  // Message
+  ROS_INFO_STREAM("HOMING ARM.");
+
   motion_control::ArmGroup q;
   q.q1 = heading_goal;
   q.q2 = JOINT2_MIN;
@@ -255,7 +254,7 @@ bool MoveArm::HomeArm(move_excavator::HomeArm::Request  &req, move_excavator::Ho
   // ROS_INFO_STREAM("Publishing joint angles (part 2):");
   // std::cout << q << std::endl;
   pubJointAngles.publish(q);
-  ros::Duration(timeout).sleep();
+  ros::Duration(duration).sleep();
 
   return true;
 }
@@ -263,9 +262,9 @@ bool MoveArm::HomeArm(move_excavator::HomeArm::Request  &req, move_excavator::Ho
 bool MoveArm::LowerArm(move_excavator::LowerArm::Request  &req, move_excavator::LowerArm::Response &res)
 {
   double heading_goal = req.heading;
-  double timeout = req.timeLimit;
+  double duration = req.timeLimit;
 
-  ROS_INFO_STREAM("DIG VOLATILE.");
+  ROS_INFO_STREAM("LOWERING ARM.");
 
   motion_control::ArmGroup q;
   for (int i = 0; i<101; i++) 
@@ -275,7 +274,7 @@ bool MoveArm::LowerArm(move_excavator::LowerArm::Request  &req, move_excavator::
     q.q3 = PI/2;
     q.q4 = -PI/2; // + PITCH
     pubJointAngles.publish(q);
-    ros::Duration(timeout/100.0).sleep();
+    ros::Duration(duration/100.0).sleep();
   }
   return true;
 }
@@ -283,9 +282,9 @@ bool MoveArm::LowerArm(move_excavator::LowerArm::Request  &req, move_excavator::
 bool MoveArm::Scoop(move_excavator::Scoop::Request  &req, move_excavator::Scoop::Response &res)
 {
   double heading_goal = req.heading;
-  double timeout = req.timeLimit;
+  double duration = req.timeLimit;
   
-  ROS_INFO_STREAM("SCOOP VOLATILE.");
+  ROS_INFO_STREAM("SCOOPING.");
 
   motion_control::ArmGroup q;
   for (int i = 0; i<101; i++) 
@@ -295,7 +294,7 @@ bool MoveArm::Scoop(move_excavator::Scoop::Request  &req, move_excavator::Scoop:
     q.q3 = PI/2-i*JOINT2_MAX/100;
     q.q4 = -PI/2; // + PITCH
     pubJointAngles.publish(q);
-    ros::Duration(timeout/100.0).sleep();
+    ros::Duration(duration/100.0).sleep();
   }
 
   return true;
@@ -304,7 +303,7 @@ bool MoveArm::Scoop(move_excavator::Scoop::Request  &req, move_excavator::Scoop:
 bool MoveArm::AfterScoop(move_excavator::AfterScoop::Request  &req, move_excavator::AfterScoop::Response &res)
 {
   double heading_goal = req.heading;
-  double timeout = req.timeLimit;
+  double duration = req.timeLimit;
 
   ROS_INFO_STREAM("AFTER SCOOP.");
 
@@ -316,7 +315,7 @@ bool MoveArm::AfterScoop(move_excavator::AfterScoop::Request  &req, move_excavat
     q.q3 = PI/2-i*JOINT2_MIN/100;
     q.q4 = -PI/2; // + PITCH
     pubJointAngles.publish(q);
-    ros::Duration(timeout/100.0).sleep();
+    ros::Duration(duration/100.0).sleep();
   }
 
   return true;
@@ -324,30 +323,53 @@ bool MoveArm::AfterScoop(move_excavator::AfterScoop::Request  &req, move_excavat
 
 bool MoveArm::ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator::ExtendArm::Response &res)
 {
+  double range_goal = req.range;
   double heading_goal = req.heading;
-  double timeout = req.timeLimit;
+  double duration = req.timeLimit;
 
   ROS_INFO_STREAM("EXTEND ARM.");
+
+  double q2_goal;
+  double q3_goal;
+
+  if (range_goal > 0.42 && range_goal < 1.45) 
+  {
+    res.success = true;
+    q2_goal = JOINT2_MIN;
+    q3_goal = JOINT2_MIN + (range_goal - 0.42)/(1.45-0.42)*(JOINT3_MAX-JOINT3_MIN);
+  }
+  else if (range_goal >= 1.45 && range_goal < 1.83)
+  {
+    res.success = true;
+    q2_goal = -0.65;
+    q3_goal = -0.65 + (range_goal - 0.42)/(1.45-0.42)*(JOINT3_MAX-JOINT3_MIN);
+  }
+  else
+  {
+    res.success = false;
+    q2_goal = JOINT2_MIN;
+    q3_goal = JOINT3_MAX-(PI/2);
+  }
 
   motion_control::ArmGroup q;
   for (int i = 0; i<101; i++) 
   {
-    q.q1 = 0;
-    q.q2 = JOINT2_MIN;
-    q.q3 = JOINT3_MAX-i*(PI/2)/100;
+    q.q1 = q1_curr_ - (float) i/100.0*q1_curr_;
+    q.q2 = q2_curr_ - (float) i/100.0*(q2_curr_-JOINT2_MIN);
+    q.q3 = q3_curr_ - (float) i/100.0*(q3_curr_-JOINT3_MIN);
     q.q4 = 0 - (q.q2 + q.q3); // + PITCH
     pubJointAngles.publish(q);
-    ros::Duration(timeout/100.0).sleep();
+    ros::Duration(duration/(2*100.0)).sleep();
   }
 
   for (int i = 0; i<101; i++) 
   {
-    q.q1 = i*heading_goal/100;
-    q.q2 = JOINT2_MIN;
-    q.q3 = JOINT3_MAX-(PI/2);
+    q.q1 = (float) i/100.0*heading_goal;
+    q.q2 = JOINT2_MIN - (float) i/100.0*(JOINT2_MIN-q2_goal);
+    q.q3 = JOINT3_MIN - (float) i/100.0*(JOINT3_MIN-q3_goal);
     q.q4 = 0 - (q.q2 + q.q3); // + PITCH
     pubJointAngles.publish(q);
-    ros::Duration(timeout/100.0).sleep();
+    ros::Duration(duration/(2*100.0)).sleep();
   }
 
   return true;
@@ -355,22 +377,47 @@ bool MoveArm::ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator
 
 bool MoveArm::DropVolatile(move_excavator::DropVolatile::Request  &req, move_excavator::DropVolatile::Response &res)
 {
-  double heading_goal = req.heading;
-  double timeout = req.timeLimit;
+  int type = req.type;
+  double duration = req.timeLimit;
 
   ROS_INFO_STREAM("DROP VOLATILE.");
 
   motion_control::ArmGroup q;
-  for (int i = 0; i<101; i++) 
+  if (type == 0)
   {
-    q.q1 = q1_curr_;
-    q.q2 = q2_curr_+i*(PI/2800.0);
-    q.q3 = q3_curr_;
-    q.q4 = (float)i*(PI/120.0); // + PITCH
-    pubJointAngles.publish(q);
-    ros::Duration(timeout/100.0).sleep();
+    for (int i = 0; i<101; i++)
+    {
+      q.q1 = q1_curr_;
+      q.q2 = q2_curr_ + (float) i/100.0*(PI/28.0);
+      q.q3 = q3_curr_;
+      q.q4 = (float) i/100.0*(PI/1.2); // + PITCH
+      pubJointAngles.publish(q);
+      ros::Duration(duration/100.0).sleep();
+    }
   }
+  else
+  {
+    for (int i = 0; i<101; i++) 
+    {
+      q.q1 = q1_curr_;
+      q.q2 = q2_curr_ + (float) i/100.0*(PI/24.0);
+      q.q3 = q3_curr_ + (float) i/100.0*(PI/4.0);
+      q.q4 = q4_curr_ - (float) i/100.0*(q4_curr_-JOINT4_MAX); // + PITCH
+      pubJointAngles.publish(q);
+      ros::Duration(duration/(100.0)).sleep();
+    }
 
+    for (int i = 0; i<101; i++) 
+    {
+      q.q1 = q1_curr_;
+      q.q2 = q2_curr_;
+      q.q3 = q3_curr_;
+      q.q4 = q4_curr_;
+      pubJointAngles.publish(q);
+      ros::Duration(duration/(4*100.0)).sleep();
+    }
+
+  }
   return true;
 }
 
@@ -395,23 +442,25 @@ bool MoveArm::ExcavatorFK(move_excavator::ExcavatorFK::Request  &req, move_excav
 bool MoveArm::GoToPose(move_excavator::GoToPose::Request  &req, move_excavator::GoToPose::Response &res)
 {
   ROS_INFO_STREAM("MANIPULATION: Target point. Point:" << req.goal);
-  if (req.goal.header.frame_id != robot_name_+"_arm_mount")
-  {
-    transform_to_arm_mount = tf_buffer.lookupTransform(robot_name_+"_arm_mount", req.goal.header.frame_id, ros::Time(0), ros::Duration(1.0));
-    tf2::doTransform(req.goal, goal_point_, transform_to_arm_mount);
-  }
-  
+  // if (req.goal.header.frame_id != robot_name_+"_arm_mount")
+  // {
+  //   transform_to_arm_mount = tf_buffer.lookupTransform(robot_name_+"_arm_mount", req.goal.header.frame_id, ros::Time(0), ros::Duration(1.0));
+  //   tf2::doTransform(req.goal, goal_point_, transform_to_arm_mount);
+  // }
+
+  goal_point_ = req.goal;
+
   // Correct displacement between the center of the rover and the base of the arm
   // For some reason, the arm_mount frame is at the center of the drone.
   goal_point_.point.x -= 0.7;
   goal_point_.point.z -= 0.1;
 
-  ROS_INFO_STREAM("MANIPULATION: Target new frame updated. Point:" << goal_point_);
+  ROS_INFO_STREAM("MANIPULATION: Target updated (accounting for shift in x and z). Point:" << goal_point_);
 
   
   // Fake position for testing
   //goal_point_.point.x = 0.75;
-  //goal_point_.point.y = 0.75;
+  //goal_point_.point.y = 0.75;_arm_mount
   //goal_point_.point.z = 0.5;
 
   Eigen::VectorXd goal_xyzp = Eigen::VectorXd::Zero(4);
@@ -421,7 +470,7 @@ bool MoveArm::GoToPose(move_excavator::GoToPose::Request  &req, move_excavator::
   start_joints << q1_curr_, q2_curr_, q3_curr_, q4_curr_;
   ROS_INFO_STREAM("Starting joint angles:" << start_joints);
 
-  double timeout = req.timeLimit;
+  double duration = req.timeLimit;
   goal_xyzp << goal_point_.point.x, goal_point_.point.y, goal_point_.point.z, 0; // The angle must be -15 to avoid droping the volatiles. Ideally it would be 0.
   ROS_INFO_STREAM("Goal XYZP:" << goal_xyzp);
 
@@ -443,7 +492,7 @@ bool MoveArm::GoToPose(move_excavator::GoToPose::Request  &req, move_excavator::
     q.q4 = trajectory(i,3);
     pubJointAngles.publish(q);
     // ROS_INFO_STREAM("Published joint angle cmds:" << q);
-    ros::Duration(timeout/static_cast<double>(steps)).sleep();
+    ros::Duration(duration/static_cast<double>(steps)).sleep();
     
   }
 
@@ -539,22 +588,14 @@ std::pair<bool, Eigen::VectorXd> MoveArm::SolveIK(Eigen::VectorXd goal_xyzp)
   double r_test;
   double z_test;
 
-  std::vector<double> q2_test;
-
-  if (z_goal < 0.1)
-  {
-    q2_test = LinearSpacedArray(0, JOINT2_MAX, 50);
-  }
-  else
-  {
-    q2_test = LinearSpacedArray(JOINT2_MIN, 0, 50);
-  }
+  std::vector<double> q2_test = LinearSpacedArray(JOINT2_MIN, JOINT2_MAX, 50);
   std::vector<double> q3_test = LinearSpacedArray(JOINT3_MIN, JOINT3_MAX, 100);
 
   bool flag_found_solution = false;
 
   double error = 100;
-  double min_error = 100;
+  double min_q2_goal = JOINT2_MAX;
+  double min_q3_goal = JOINT3_MAX;
 
   if (q1_goal > 1.75 && q1_goal < 2.60)
   {
@@ -568,8 +609,9 @@ std::pair<bool, Eigen::VectorXd> MoveArm::SolveIK(Eigen::VectorXd goal_xyzp)
       {
         ROS_INFO_STREAM("Found solution");
         flag_found_solution = true;
-        if (error < min_error)
+        if (iter_q3 < min_q3_goal)
         {
+          min_q3_goal = iter_q3;
           q3_goal = iter_q3;
         }
       }
@@ -584,15 +626,15 @@ std::pair<bool, Eigen::VectorXd> MoveArm::SolveIK(Eigen::VectorXd goal_xyzp)
         r_test = RPolyFit(iter_q2, iter_q3);
         z_test = ZPolyFit(iter_q2, iter_q3);
         error = hypot(r_test - r_goal, z_test - z_goal);
-        if (error < 0.1)
+        if (error < 0.3)
         {
           ROS_INFO_STREAM("Found solution");
           ROS_INFO_STREAM("Tested z: " << z_test << ", tested r: " << r_test << ".");
           ROS_INFO_STREAM("Error " << error << ".");
           flag_found_solution = true;
-          if (error < min_error)
+          if (iter_q2 < min_q2_goal)
           {
-
+            min_q2_goal = iter_q2;
             q2_goal = iter_q2;
             q3_goal = iter_q3;
           }
@@ -600,7 +642,7 @@ std::pair<bool, Eigen::VectorXd> MoveArm::SolveIK(Eigen::VectorXd goal_xyzp)
       }
     }
   }
-  
+
   q4_goal = phi_goal - (q2_goal + q3_goal);
 
   if (!flag_found_solution)
@@ -706,7 +748,7 @@ bool MoveArm::ControlInvJac(move_excavator::ControlInvJac::Request  &req, move_e
   Eigen::VectorXd start_joints = Eigen::VectorXd::Zero(4);
   Eigen::VectorXd goal_joints = Eigen::VectorXd::Zero(4);
 
-  double timeout = req.timeLimit;
+  double duration = req.timeLimit;
   goal_xyz << req.goal.pose.position.x, req.goal.pose.position.y, req.goal.pose.position.z;
 
   ros::spinOnce();
@@ -731,7 +773,7 @@ bool MoveArm::ControlInvJac(move_excavator::ControlInvJac::Request  &req, move_e
 
   while (pos_error > max_pos_error_) 
   { 
-    if (ros::Time::now() - control_timer > ros::Duration(timeout))
+    if (ros::Time::now() - control_timer > ros::Duration(duration))
     {
       break;
       res.success = false;
