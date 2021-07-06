@@ -178,6 +178,7 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
  
   ros::Time start_time = ros::Time::now();
 
+  direction_ = req.side;
   do
   {
 
@@ -194,6 +195,8 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
     cv::erode(imgThresholdedl, imgThresholdedl, cv::Mat(), cv::Point(-1, -1), 3);
 
     detector->detect(imgThresholdedl, keypointsl);
+
+    int previous_direction = 2;
 
     // Draw detected blobs as red circles.
 
@@ -237,7 +240,7 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
           return true;
         }
       }
-
+      
       nextAngle.data = currSensorYaw_ + sgn(error) * M_PI / (2*90.0);
       pubSensorYaw.publish(nextAngle);
       ros::Duration(0.1).sleep();
@@ -245,17 +248,21 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
     else
     {
 
-      if (currSensorYaw_ < -(M_PI - M_PI / 20.0))
+      if (currSensorYaw_ < -(M_PI - M_PI / 4.0))
         direction_ = 1;
-      if (currSensorYaw_ > (M_PI - M_PI / 20.0))
+      if (currSensorYaw_ > (M_PI - M_PI / 4.0))
         direction_ = -1;
 
-      //nextAngle.data=(currSensorYaw_+direction_*M_PI);// /45.0);
-      nextAngle.data = direction_ * M_PI;
-      //ROS_INFO("%f %f %d", nextAngle.data, currSensorYaw_, direction_);
+      if(direction_ != previous_direction)
+      {//nextAngle.data=(currSensorYaw_+direction_*M_PI);// /45.0);
+        nextAngle.data = direction_ * M_PI;
+        //ROS_INFO("%f %f %d", nextAngle.data, currSensorYaw_, direction_);
 
-      pubSensorYaw.publish(nextAngle);
-      ros::Duration(0.1).sleep();
+        pubSensorYaw.publish(nextAngle);
+        ros::Duration(0.1).sleep();
+        previous_direction = direction_;
+      }
+      
     }
     // Wait for new frame -> this is important to free the processor
     while ((currentFrameId == target_.header.seq) && ((ros::Time::now() - start_time) < timeout))

@@ -342,7 +342,7 @@ bool MoveArm::ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator
   {
     res.success = true;
     q2_goal = -0.65;
-    q3_goal = -0.65 + (range_goal - 0.42)/(1.45-0.42)*(JOINT3_MAX-JOINT3_MIN);
+    q3_goal = -0.65 + (range_goal - 1.45)/(1.83-1.45)*(JOINT3_MAX-JOINT3_MIN);
   }
   else
   {
@@ -407,6 +407,8 @@ bool MoveArm::DropVolatile(move_excavator::DropVolatile::Request  &req, move_exc
       ros::Duration(duration/(100.0)).sleep();
     }
 
+    ros::Duration(2).sleep();
+    
     for (int i = 0; i<101; i++) 
     {
       q.q1 = q1_curr_;
