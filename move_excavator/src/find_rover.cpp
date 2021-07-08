@@ -178,7 +178,11 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
  
   ros::Time start_time = ros::Time::now();
 
+  int previous_direction = 2;
+
   direction_ = req.side;
+
+  // direction_ = 1;
   do
   {
 
@@ -196,8 +200,6 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
 
     detector->detect(imgThresholdedl, keypointsl);
 
-    int previous_direction = 2;
-
     // Draw detected blobs as red circles.
 
     #ifdef SHOWIMG
@@ -214,9 +216,9 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
       /*for (int i=0;i<keypointsl.size();i++){
  		ROS_INFO("Left: Area %f", keypointsl[i].size);
  		}
- 	
+      
  		ROS_INFO("____");*/
-
+      
       int i = 0; // Get the larger keypoints in each camera
 
       // Error to the center of the image
@@ -241,7 +243,7 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
         }
       }
       
-      nextAngle.data = currSensorYaw_ + sgn(error) * M_PI / (2*90.0);
+      nextAngle.data = currSensorYaw_ + sgn(error) * M_PI / (90.0);
       pubSensorYaw.publish(nextAngle);
       ros::Duration(0.1).sleep();
     }
