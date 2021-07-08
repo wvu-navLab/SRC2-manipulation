@@ -332,7 +332,14 @@ bool MoveArm::ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator
   double q2_goal;
   double q3_goal;
 
-  if (range_goal > 0.42 && range_goal < 1.45) 
+  if (range_goal < 0.42)
+  {
+    //RANGE TOO CLOSE
+    res.success = false;
+    q2_goal = JOINT2_MIN;
+    q3_goal = JOINT3_MAX-(PI/2);
+  }
+  else if (range_goal >= 0.42 && range_goal < 1.45) 
   {
     res.success = true;
     q2_goal = JOINT2_MIN;
@@ -341,11 +348,18 @@ bool MoveArm::ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator
   else if (range_goal >= 1.45 && range_goal < 1.83)
   {
     res.success = true;
-    q2_goal = -0.65;
-    q3_goal = -0.65 + (range_goal - 1.45)/(1.83-1.45)*(JOINT3_MAX-JOINT3_MIN);
+    q2_goal = -0.6544;
+    q3_goal = JOINT3_MIN + (range_goal - 1.45)/(1.83-1.45)*(JOINT3_MAX-JOINT3_MIN);
+  }
+  else if (range_goal >= 1.83 && range_goal < 1.95)
+  {
+    res.success = true;
+    q2_goal = -0.1785;
+    q3_goal = JOINT3_MIN + (range_goal - 1.83)/(1.95-1.83)*(-0.1507-JOINT3_MIN);
   }
   else
   {
+    //RANGE TOO FAR
     res.success = false;
     q2_goal = JOINT2_MIN;
     q3_goal = JOINT3_MAX-(PI/2);
