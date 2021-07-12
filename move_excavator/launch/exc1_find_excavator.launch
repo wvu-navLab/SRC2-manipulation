@@ -1,0 +1,9 @@
+<launch> 
+  <group ns="small_hauler_1">
+    <node pkg="move_excavator"
+          name="find_excavator"
+          type="find_excavator"
+          output="screen">
+    </node>
+  </group>
+</launch>

@@ -75,6 +75,7 @@ add_service_files(
   GoToPose.srv
   ControlInvJac.srv
   FindHauler.srv
+  FindExcavator.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -170,6 +171,10 @@ add_executable(find_rover src/find_rover.cpp)
 target_link_libraries(find_rover ${catkin_LIBRARIES} ${OpenCV_LIBS} )
 add_dependencies(find_rover move_excavator_generate_messages_cpp)
 
+add_executable(find_excavator src/find_excavator.cpp)
+target_link_libraries(find_excavator ${catkin_LIBRARIES} ${OpenCV_LIBS} )
+add_dependencies(find_excavator move_excavator_generate_messages_cpp)
+
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -194,6 +199,10 @@ target_link_libraries(move_arm
 )
 
 target_link_libraries(find_rover
+  ${catkin_LIBRARIES}
+)
+
+target_link_libraries(find_excavator
   ${catkin_LIBRARIES}
 )
 #############
@@ -231,7 +240,7 @@ install(DIRECTORY include/${PROJECT_NAME}/
    PATTERN ".svn" EXCLUDE
  )
 
- install(TARGETS move_arm find_rover
+ install(TARGETS move_arm find_rover find_excavator
     RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
   )
 install(DIRECTORY launch/

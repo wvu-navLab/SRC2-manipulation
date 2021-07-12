@@ -1,0 +1,5 @@
+float64 timeLimit
+int8 side
+---
+geometry_msgs/PointStamped target
+bool success
