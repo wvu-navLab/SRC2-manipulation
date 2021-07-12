@@ -51,7 +51,7 @@ public:
     void imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sensor_msgs::CameraInfoConstPtr& info_msgl, const sensor_msgs::ImageConstPtr& msgr, const sensor_msgs::CameraInfoConstPtr& info_msgr);
     void jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg);
     
-    bool FindHauler(move_excavator::FindHauler::Request  &req, move_excavator::FindHauler::Response &res);
+    bool FindHaulerService(move_excavator::FindHauler::Request  &req, move_excavator::FindHauler::Response &res);
     
     bool ComputeHaulerPosition();
     

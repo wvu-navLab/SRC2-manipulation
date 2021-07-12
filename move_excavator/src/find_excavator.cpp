@@ -90,7 +90,7 @@ void FindExcavator::jointStateCallback(const sensor_msgs::JointState::ConstPtr &
  currSensorYaw_ = msg->position[sensor_bar_yaw_joint_idx];  
 }
 
-bool FindExcavator::FindExcavator(move_excavator::FindExcavator::Request  &req, move_excavator::FindExcavator::Response &res)
+bool FindExcavator::FindExcavatorService(move_excavator::FindExcavator::Request  &req, move_excavator::FindExcavator::Response &res)
 {
 
   ROS_INFO("Service FindExcavatorCalled");

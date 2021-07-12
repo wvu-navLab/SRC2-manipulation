@@ -129,7 +129,7 @@ void FindHauler::jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg
  currSensorYaw_ = msg->position[sensor_bar_yaw_joint_idx];  
 }
 
-bool FindHauler::FindHauler(move_excavator::FindHauler::Request  &req, move_excavator::FindHauler::Response &res)
+bool FindHauler::FindHaulerService(move_excavator::FindHauler::Request  &req, move_excavator::FindHauler::Response &res)
 {
 
   ROS_INFO("Service FindHauler Called");

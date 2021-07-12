@@ -41,7 +41,7 @@ public:
     void imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sensor_msgs::CameraInfoConstPtr& info_msgl, const sensor_msgs::ImageConstPtr& msgr, const sensor_msgs::CameraInfoConstPtr& info_msgr);
     void jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg);
     
-    bool FindExcavator(move_excavator::FindExcavator::Request  &req, move_excavator::FindExcavator::Response &res);
+    bool FindExcavatorService(move_excavator::FindExcavator::Request  &req, move_excavator::FindExcavator::Response &res);
     
     bool ComputeExcavatorPosition();
     
