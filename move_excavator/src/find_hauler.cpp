@@ -42,7 +42,7 @@ FindHauler::FindHauler(ros::NodeHandle & nh)
   pubSensorYaw = nh_.advertise<std_msgs::Float64>("sensor/yaw/command/position", 1000);
 
   // Service Servers
-  serverFindHauler = nh_.advertiseService("manipulation/find_hauler", &FindHauler::FindHauler, this);
+  serverFindHauler = nh_.advertiseService("manipulation/find_hauler", &FindHauler::FindHaulerService, this);
   
   // Service Clients
   clientSpotLight = nh_.serviceClient<srcp2_msgs::SpotLightSrv>("spot_light");
