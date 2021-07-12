@@ -2,13 +2,13 @@
  * \find_rover.cpp
  * \brief Algorithms for Finding Rover for SRC2 Rovers
  *
- * FindRover creates a ROS node that ...
+ * FindHauler creates a ROS node that ...
  *
  * \author Bernardo Martinez Rocamora Junior, WVU - bm00002@mix.wvu.edu
  * \date May 04, 2020
  */
 
-#include "move_excavator/find_rover.h"
+#include "move_excavator/find_hauler.h"
 
 template <typename T> int sgn(T val) {
     return (T(0) < val) - (val < T(0));
@@ -16,7 +16,7 @@ template <typename T> int sgn(T val) {
 
 //#define SHOWIMG
 
-void FindRover::CallBackFunc(int event, int x, int y, int flags, void* userdata)
+void FindHauler::CallBackFunc(int event, int x, int y, int flags, void* userdata)
 {
      if  ( event == cv::EVENT_LBUTTONDOWN )
      {
@@ -25,7 +25,7 @@ void FindRover::CallBackFunc(int event, int x, int y, int flags, void* userdata)
 }
 
 
-FindRover::FindRover(ros::NodeHandle & nh)
+FindHauler::FindHauler(ros::NodeHandle & nh)
 : nh_(nh), sync(MySyncPolicy(10), left_image_sub, left_info_sub, right_image_sub, right_info_sub)
 {
   ximg=0;
@@ -42,22 +42,22 @@ FindRover::FindRover(ros::NodeHandle & nh)
   pubSensorYaw = nh_.advertise<std_msgs::Float64>("sensor/yaw/command/position", 1000);
 
   // Service Servers
-  serverFindHauler = nh_.advertiseService("manipulation/find_hauler", &FindRover::FindHauler, this);
+  serverFindHauler = nh_.advertiseService("manipulation/find_hauler", &FindHauler::FindHauler, this);
   
   // Service Clients
   clientSpotLight = nh_.serviceClient<srcp2_msgs::SpotLightSrv>("spot_light");
   
   // Subscribers
-  //subLaserScan = nh_.subscribe("laser/scan", 1000, &FindRover::laserCallback, this);
+  //subLaserScan = nh_.subscribe("laser/scan", 1000, &FindHauler::laserCallback, this);
   
-  subJointStates = nh_.subscribe("joint_states", 1, &FindRover::jointStateCallback, this);
+  subJointStates = nh_.subscribe("joint_states", 1, &FindHauler::jointStateCallback, this);
   
   right_image_sub.subscribe(nh_,"camera/right/image_raw", 1);
   left_image_sub.subscribe(nh_,"camera/left/image_raw", 1);
   right_info_sub.subscribe(nh_,"camera/right/camera_info", 1);
   left_info_sub.subscribe(nh_,"camera/left/camera_info", 1);
   
-  sync.registerCallback(boost::bind(&FindRover::imageCallback,this, _1, _2, _3, _4));
+  sync.registerCallback(boost::bind(&FindHauler::imageCallback,this, _1, _2, _3, _4));
   
   iLowH_ = 0;
   iHighH_ = 5;
@@ -73,12 +73,12 @@ FindRover::FindRover(ros::NodeHandle & nh)
   
 }
 
-FindRover::~FindRover()
+FindHauler::~FindHauler()
 {
   cv::destroyAllWindows();
 }
 
-/*void FindRover::laserCallback(const sensor_msgs::LaserScan::ConstPtr &msg)
+/*void FindHauler::laserCallback(const sensor_msgs::LaserScan::ConstPtr &msg)
 {
   int size = msg->ranges.size();
   int minIndex = 0;
@@ -108,13 +108,13 @@ FindRover::~FindRover()
 }*/
 
 
-bool FindRover::compareKeypoints(const cv::KeyPoint &k1, const cv::KeyPoint &k2)
+bool FindHauler::compareKeypoints(const cv::KeyPoint &k1, const cv::KeyPoint &k2)
 {
 	if (k1.size > k2.size) return true;
   	else return false;
 }
 
-void FindRover::jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg)
+void FindHauler::jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg)
 {
   // Find current angles and position
   int sensor_bar_yaw_joint_idx;
@@ -129,7 +129,7 @@ void FindRover::jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg)
  currSensorYaw_ = msg->position[sensor_bar_yaw_joint_idx];  
 }
 
-bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excavator::FindHauler::Response &res)
+bool FindHauler::FindHauler(move_excavator::FindHauler::Request  &req, move_excavator::FindHauler::Response &res)
 {
 
   ROS_INFO("Service FindHauler Called");
@@ -285,7 +285,7 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
   return true;
 }
 
-void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sensor_msgs::CameraInfoConstPtr& info_msgl, const sensor_msgs::ImageConstPtr& msgr, const sensor_msgs::CameraInfoConstPtr& info_msgr)
+void FindHauler::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sensor_msgs::CameraInfoConstPtr& info_msgl, const sensor_msgs::ImageConstPtr& msgr, const sensor_msgs::CameraInfoConstPtr& info_msgr)
 {
   
 
@@ -330,7 +330,7 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
 }
       
       
-bool FindRover::ComputeHaulerPosition()
+bool FindHauler::ComputeHaulerPosition()
 {    
   cv::Mat hsv_imagel;
   cv::cvtColor(raw_imagel_, hsv_imagel, CV_BGR2HSV);
@@ -462,7 +462,7 @@ return false;
 }
 
 /*!
- * \brief Creates and runs the FindRover node.
+ * \brief Creates and runs the FindHauler node.
  *
  * \param argc argument count that is passed to ros::init
  * \param argv arguments that are passed to ros::init
@@ -476,7 +476,7 @@ int main(int argc, char **argv)
   ros::Rate rate(50);
 
   ROS_INFO("Find Rover Node initializing...");
-  FindRover find_rover(nh);
+  FindHauler find_rover(nh);
 
   while(ros::ok()) 
   {

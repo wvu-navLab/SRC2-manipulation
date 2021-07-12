@@ -32,11 +32,11 @@
 #include <sensor_msgs/JointState.h>
 
 
-class FindRover
+class FindExcavator
 {
 public:
-    FindRover(ros::NodeHandle & nh);
-    ~FindRover();
+    FindExcavator(ros::NodeHandle & nh);
+    ~FindExcavator();
     //void laserCallback(const sensor_msgs::LaserScan::ConstPtr &msg);
     void imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sensor_msgs::CameraInfoConstPtr& info_msgl, const sensor_msgs::ImageConstPtr& msgr, const sensor_msgs::CameraInfoConstPtr& info_msgr);
     void jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg);
@@ -96,4 +96,4 @@ private:
     bool static compareKeypoints(const cv::KeyPoint &k1, const cv::KeyPoint &k2);
 };
 
-#endif
+#endif // FIND_EXCAVATOR_H

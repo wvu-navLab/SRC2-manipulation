@@ -9,7 +9,7 @@ template <typename T> int sgn(T val) {
 #define SHOWIMG
 #define MIN_AREA 600
 
-void FindRover::CallBackFunc(int event, int x, int y, int flags, void* userdata)
+void FindExcavator::CallBackFunc(int event, int x, int y, int flags, void* userdata)
 {
      if  ( event == cv::EVENT_LBUTTONDOWN )
      {
@@ -18,7 +18,7 @@ void FindRover::CallBackFunc(int event, int x, int y, int flags, void* userdata)
 }
 
 
-FindRover::FindRover(ros::NodeHandle & nh)
+FindExcavator::FindExcavator(ros::NodeHandle & nh)
 : nh_(nh), sync(MySyncPolicy(10), left_image_sub, left_info_sub, right_image_sub, right_info_sub)
 {
   ximg=0;
@@ -33,20 +33,20 @@ FindRover::FindRover(ros::NodeHandle & nh)
   pubSensorYaw = nh_.advertise<std_msgs::Float64>("sensor/yaw/command/position", 1000);
 
   // Service Servers
-  serverFindExcavator= nh_.advertiseService("manipulation/find_excavator", &FindRover::FindExcavator, this);
+  serverFindExcavator= nh_.advertiseService("manipulation/find_excavator", &FindExcavator::FindExcavator, this);
   
   // Service Clients
   clientSpotLight = nh_.serviceClient<srcp2_msgs::SpotLightSrv>("spot_light");
   
   
-  subJointStates = nh_.subscribe("joint_states", 1, &FindRover::jointStateCallback, this);
+  subJointStates = nh_.subscribe("joint_states", 1, &FindExcavator::jointStateCallback, this);
   
   right_image_sub.subscribe(nh_,"camera/right/image_raw", 1);
   left_image_sub.subscribe(nh_,"camera/left/image_raw", 1);
   right_info_sub.subscribe(nh_,"camera/right/camera_info", 1);
   left_info_sub.subscribe(nh_,"camera/left/camera_info", 1);
   
-  sync.registerCallback(boost::bind(&FindRover::imageCallback,this, _1, _2, _3, _4));
+  sync.registerCallback(boost::bind(&FindExcavator::imageCallback,this, _1, _2, _3, _4));
   
   iLowH_ = 0;
   iHighH_ = 5;
@@ -62,20 +62,20 @@ FindRover::FindRover(ros::NodeHandle & nh)
   
 }
 
-FindRover::~FindRover()
+FindExcavator::~FindExcavator()
 {
   cv::destroyAllWindows();
 }
 
 
 
-bool FindRover::compareKeypoints(const cv::KeyPoint &k1, const cv::KeyPoint &k2)
+bool FindExcavator::compareKeypoints(const cv::KeyPoint &k1, const cv::KeyPoint &k2)
 {
 	if (k1.size > k2.size) return true;
   	else return false;
 }
 
-void FindRover::jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg)
+void FindExcavator::jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg)
 {
   // Find current angles and position
   int sensor_bar_yaw_joint_idx;
@@ -90,7 +90,7 @@ void FindRover::jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg)
  currSensorYaw_ = msg->position[sensor_bar_yaw_joint_idx];  
 }
 
-bool FindRover::FindExcavator(move_excavator::FindExcavator::Request  &req, move_excavator::FindExcavator::Response &res)
+bool FindExcavator::FindExcavator(move_excavator::FindExcavator::Request  &req, move_excavator::FindExcavator::Response &res)
 {
 
   ROS_INFO("Service FindExcavatorCalled");
@@ -241,7 +241,7 @@ bool FindRover::FindExcavator(move_excavator::FindExcavator::Request  &req, move
   return true;
 }
 
-void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sensor_msgs::CameraInfoConstPtr& info_msgl, const sensor_msgs::ImageConstPtr& msgr, const sensor_msgs::CameraInfoConstPtr& info_msgr)
+void FindExcavator::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sensor_msgs::CameraInfoConstPtr& info_msgl, const sensor_msgs::ImageConstPtr& msgr, const sensor_msgs::CameraInfoConstPtr& info_msgr)
 {
   
 
@@ -286,7 +286,7 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
 }
       
       
-bool FindRover::ComputeExcavatorPosition()
+bool FindExcavator::ComputeExcavatorPosition()
 {    
   cv::Mat hsv_imagel;
   cv::cvtColor(raw_imagel_, hsv_imagel, CV_BGR2HSV);
@@ -418,7 +418,7 @@ return false;
 }
 
 /*!
- * \brief Creates and runs the FindRover node.
+ * \brief Creates and runs the FindExcavator node.
  *
  * \param argc argument count that is passed to ros::init
  * \param argv arguments that are passed to ros::init
@@ -432,7 +432,7 @@ int main(int argc, char **argv)
   ros::Rate rate(50);
 
   ROS_INFO("Find Excavator Node initializing...");
-  FindRover find_rover(nh);
+  FindExcavator find_rover(nh);
 
   while(ros::ok()) 
   {

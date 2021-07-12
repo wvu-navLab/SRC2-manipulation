@@ -1,8 +1,8 @@
 <launch> 
 
   <node pkg="move_excavator"
-        name="find_hauler"
-        type="find_hauler"
+        name="find_excavator"
+        type="find_excavator"
         output="screen">
   </node>
 

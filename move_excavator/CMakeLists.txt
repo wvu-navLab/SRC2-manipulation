@@ -167,9 +167,9 @@ add_executable(move_arm src/move_arm.cpp)
 target_link_libraries(move_arm ${catkin_LIBRARIES})
 add_dependencies(move_arm move_excavator_generate_messages_cpp)
 
-add_executable(find_rover src/find_rover.cpp)
-target_link_libraries(find_rover ${catkin_LIBRARIES} ${OpenCV_LIBS} )
-add_dependencies(find_rover move_excavator_generate_messages_cpp)
+add_executable(find_hauler src/find_hauler.cpp)
+target_link_libraries(find_hauler ${catkin_LIBRARIES} ${OpenCV_LIBS} )
+add_dependencies(find_hauler move_excavator_generate_messages_cpp)
 
 add_executable(find_excavator src/find_excavator.cpp)
 target_link_libraries(find_excavator ${catkin_LIBRARIES} ${OpenCV_LIBS} )
@@ -198,7 +198,7 @@ target_link_libraries(move_arm
   ${catkin_LIBRARIES}
 )
 
-target_link_libraries(find_rover
+target_link_libraries(find_hauler
   ${catkin_LIBRARIES}
 )
 
@@ -240,7 +240,7 @@ install(DIRECTORY include/${PROJECT_NAME}/
    PATTERN ".svn" EXCLUDE
  )
 
- install(TARGETS move_arm find_rover find_excavator
+ install(TARGETS move_arm find_hauler find_excavator
     RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
   )
 install(DIRECTORY launch/

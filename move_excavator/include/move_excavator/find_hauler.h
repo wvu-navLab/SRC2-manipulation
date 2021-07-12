@@ -8,8 +8,8 @@
  * * \date April 28, 2020
  */
 
-#ifndef FIND_ROVER_H
-#define FIND_ROVER_H
+#ifndef FIND_HAULER_H
+#define FIND_HAULER_H
 
 #include <math.h>
 #include <stdio.h> 
@@ -42,11 +42,11 @@
 #define PI 3.141592653589793
 
 
-class FindRover
+class FindHauler
 {
 public:
-    FindRover(ros::NodeHandle & nh);
-    ~FindRover();
+    FindHauler(ros::NodeHandle & nh);
+    ~FindHauler();
     //void laserCallback(const sensor_msgs::LaserScan::ConstPtr &msg);
     void imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sensor_msgs::CameraInfoConstPtr& info_msgl, const sensor_msgs::ImageConstPtr& msgr, const sensor_msgs::CameraInfoConstPtr& info_msgr);
     void jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg);
@@ -106,4 +106,4 @@ private:
     bool static compareKeypoints(const cv::KeyPoint &k1, const cv::KeyPoint &k2);
 };
 
-#endif // ROTATE_IN_PLACE_H
+#endif // FIND_HAULER_H
