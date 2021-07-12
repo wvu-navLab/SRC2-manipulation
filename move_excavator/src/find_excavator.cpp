@@ -1,20 +1,13 @@
-/*!
- * \find_rover.cpp
- * \brief Algorithms for Finding Rover for SRC2 Rovers
- *
- * FindRover creates a ROS node that ...
- *
- * \author Bernardo Martinez Rocamora Junior, WVU - bm00002@mix.wvu.edu
- * \date May 04, 2020
- */
 
-#include "move_excavator/find_rover.h"
+
+#include "move_excavator/find_excavator.h"
 
 template <typename T> int sgn(T val) {
     return (T(0) < val) - (val < T(0));
 }
 
-//#define SHOWIMG
+#define SHOWIMG
+#define MIN_AREA 600
 
 void FindRover::CallBackFunc(int event, int x, int y, int flags, void* userdata)
 {
@@ -36,19 +29,15 @@ FindRover::FindRover(ros::NodeHandle & nh)
   cv::setMouseCallback("originall", CallBackFunc, this);
 #endif  
   
-   
-  //pubTarget = nh_.advertise<geometry_msgs::PointStamped>("manipulation/target_bin", 1000);
   
   pubSensorYaw = nh_.advertise<std_msgs::Float64>("sensor/yaw/command/position", 1000);
 
   // Service Servers
-  serverFindHauler = nh_.advertiseService("manipulation/find_hauler", &FindRover::FindHauler, this);
+  serverFindExcavator= nh_.advertiseService("manipulation/find_excavator", &FindRover::FindExcavator, this);
   
   // Service Clients
   clientSpotLight = nh_.serviceClient<srcp2_msgs::SpotLightSrv>("spot_light");
   
-  // Subscribers
-  //subLaserScan = nh_.subscribe("laser/scan", 1000, &FindRover::laserCallback, this);
   
   subJointStates = nh_.subscribe("joint_states", 1, &FindRover::jointStateCallback, this);
   
@@ -78,34 +67,6 @@ FindRover::~FindRover()
   cv::destroyAllWindows();
 }
 
-/*void FindRover::laserCallback(const sensor_msgs::LaserScan::ConstPtr &msg)
-{
-  int size = msg->ranges.size();
-  int minIndex = 0;
-  int maxIndex = size-1; 
-  int closestIndex = -1;
-  double minVal = 999; //values are between 0.2 and 30 meters for my scanner
-
-  for (int i = minIndex; i < maxIndex; i++)
-  {
-      if ((msg->ranges[i] <= minVal) && (msg->ranges[i] >= msg->range_min) && (msg->ranges[i] <= msg->range_max))
-      {
-          minVal = msg->ranges[i];
-          closestIndex = i;
-      }
-  }
-  //ROS_INFO_STREAM("Minimum distance in Lidar view: " << msg->ranges[closestIndex]);
-
-  if(msg->ranges[closestIndex] < 0.8)
-  {
-    m.isRoverInRange = true;
-  }
-  else
-  {
-    m.isRoverInRange = false;
-  }
-  pubMultiAgentState.publish(m);
-}*/
 
 
 bool FindRover::compareKeypoints(const cv::KeyPoint &k1, const cv::KeyPoint &k2)
@@ -129,10 +90,10 @@ void FindRover::jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg)
  currSensorYaw_ = msg->position[sensor_bar_yaw_joint_idx];  
 }
 
-bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excavator::FindHauler::Response &res)
+bool FindRover::FindExcavator(move_excavator::FindExcavator::Request  &req, move_excavator::FindExcavator::Response &res)
 {
 
-  ROS_INFO("Service FindHauler Called");
+  ROS_INFO("Service FindExcavatorCalled");
   //turn on the light
   srcp2_msgs::SpotLightSrv srv;
   srv.request.range = 20;
@@ -150,7 +111,7 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
 
   // Filter by Area.
   params.filterByArea = true;
-  params.minArea = 5000;
+  params.minArea = MIN_AREA;
   params.maxArea = 2000000;
 
   // Filter by Circularity
@@ -182,7 +143,8 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
 
   direction_ = req.side;
 
-  // direction_ = 1;
+  if (direction_==0) direction_=-1;
+
   do
   {
 
@@ -212,25 +174,19 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
     {
       // Sort the keypoints in order of area
       std::sort(keypointsl.begin(), keypointsl.end(), compareKeypoints);
-
-      /*for (int i=0;i<keypointsl.size();i++){
- 		ROS_INFO("Left: Area %f", keypointsl[i].size);
- 		}
-      
- 		ROS_INFO("____");*/
-      
+    
       int i = 0; // Get the larger keypoints in each camera
 
       // Error to the center of the image
       double error = (raw_imagel_.cols) / 2.0 - keypointsl[i].pt.x;
       //ROS_INFO("Error %f, Center: %f, Keypoint: %f", error, (raw_imagel_.cols)/2.0, keypointsl[i].pt.x );
 
-      if (fabs(error) < 5.0)
+      if ((fabs(error) < 5.0) || (currSensorYaw_ < -(M_PI /6.0)) || (currSensorYaw_ > (M_PI / 6.0)))
       {
 
         ros::spinOnce();
         ros::Duration(0.5).sleep();
-        if (ComputeHaulerPosition())
+        if (ComputeExcavatorPosition())
         {
           res.success = true;
           res.target = target_;
@@ -251,14 +207,14 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
     }
     else
     {
-
-      if (currSensorYaw_ < -(M_PI - M_PI / 4.0))
+    
+      if (currSensorYaw_ < -(M_PI /6.0))
         direction_ = 1;
-      if (currSensorYaw_ > (M_PI - M_PI / 4.0))
+      if (currSensorYaw_ > (M_PI / 6.0))
         direction_ = -1;
 
       if(direction_ != previous_direction)
-      {//nextAngle.data=(currSensorYaw_+direction_*M_PI);// /45.0);
+      {
         nextAngle.data = direction_ * M_PI;
         //ROS_INFO("%f %f %d", nextAngle.data, currSensorYaw_, direction_);
 
@@ -279,7 +235,7 @@ bool FindRover::FindHauler(move_excavator::FindHauler::Request  &req, move_excav
 
   nextAngle.data = currSensorYaw_;
   pubSensorYaw.publish(nextAngle);
-  ROS_INFO("FindHauler: TimeOut");
+  ROS_INFO("FindExcavator: TimeOut");
 
   res.success = false;
   return true;
@@ -330,7 +286,7 @@ void FindRover::imageCallback(const sensor_msgs::ImageConstPtr& msgl, const sens
 }
       
       
-bool FindRover::ComputeHaulerPosition()
+bool FindRover::ComputeExcavatorPosition()
 {    
   cv::Mat hsv_imagel;
   cv::cvtColor(raw_imagel_, hsv_imagel, CV_BGR2HSV);
@@ -366,7 +322,7 @@ bool FindRover::ComputeHaulerPosition()
 
   // Filter by Area.
   params.filterByArea = true;
-  params.minArea = 5000;
+  params.minArea = MIN_AREA;
   params.maxArea = 2000000;
 
   // Filter by Circularity
@@ -471,11 +427,11 @@ return false;
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "find_rover");
+  ros::init(argc, argv, "find_excavator");
   ros::NodeHandle nh("");
   ros::Rate rate(50);
 
-  ROS_INFO("Find Rover Node initializing...");
+  ROS_INFO("Find Excavator Node initializing...");
   FindRover find_rover(nh);
 
   while(ros::ok()) 
