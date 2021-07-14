@@ -143,8 +143,10 @@ bool FindExcavator::FindExcavatorService(move_excavator::FindExcavator::Request 
 
   direction_ = req.side;
 
+ 
   if (direction_==0) direction_=-1;
 
+  
   do
   {
 
@@ -190,11 +192,15 @@ bool FindExcavator::FindExcavatorService(move_excavator::FindExcavator::Request 
         {
           res.success = true;
           res.target = target_;
+          nextAngle.data = 0.0;
+          pubSensorYaw.publish(nextAngle);
           return true;
         }
         else
         {
           res.success = false;
+          nextAngle.data = 0.0;
+          pubSensorYaw.publish(nextAngle);
           return true;
         }
       }
@@ -233,7 +239,7 @@ bool FindExcavator::FindExcavatorService(move_excavator::FindExcavator::Request 
 
   } while ((ros::Time::now() - start_time) < timeout);
 
-  nextAngle.data = currSensorYaw_;
+  nextAngle.data = 0.0;
   pubSensorYaw.publish(nextAngle);
   ROS_INFO("FindExcavator: TimeOut");
 
