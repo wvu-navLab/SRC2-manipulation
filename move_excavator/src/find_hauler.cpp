@@ -182,7 +182,6 @@ bool FindHauler::FindHaulerService(move_excavator::FindHauler::Request  &req, mo
 
   direction_ = req.side;
 
-  // direction_ = 1;
   do
   {
 
@@ -252,16 +251,14 @@ bool FindHauler::FindHaulerService(move_excavator::FindHauler::Request  &req, mo
     else
     {
 
-      if (currSensorYaw_ < -(M_PI - M_PI / 4.0))
+      if ((currSensorYaw_ < -(M_PI - M_PI / 4.0)) && (previous_direction == -1))
         direction_ = 1;
-      if (currSensorYaw_ > (M_PI - M_PI / 4.0))
+      if ((currSensorYaw_ > (M_PI - M_PI / 4.0)) && (previous_direction == 1))
         direction_ = -1;
 
       if(direction_ != previous_direction)
-      {//nextAngle.data=(currSensorYaw_+direction_*M_PI);// /45.0);
+      {
         nextAngle.data = direction_ * M_PI;
-        //ROS_INFO("%f %f %d", nextAngle.data, currSensorYaw_, direction_);
-
         pubSensorYaw.publish(nextAngle);
         ros::Duration(0.1).sleep();
         previous_direction = direction_;
