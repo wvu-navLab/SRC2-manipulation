@@ -36,6 +36,7 @@
 #include <move_excavator/Scoop.h>
 #include <move_excavator/AfterScoop.h>
 #include <move_excavator/LowerArm.h>
+#include <move_excavator/RetractArm.h>
 #include <move_excavator/ExcavatorFK.h>
 #include <move_excavator/GoToPose.h>
 #include <move_excavator/ControlInvJac.h>
@@ -73,6 +74,7 @@ public:
   bool Scoop(move_excavator::Scoop::Request  &req, move_excavator::Scoop::Response &res);
   bool AfterScoop(move_excavator::AfterScoop::Request  &req, move_excavator::AfterScoop::Response &res);
   bool LowerArm(move_excavator::LowerArm::Request  &req, move_excavator::LowerArm::Response &res);
+  bool RetractArm(move_excavator::RetractArm::Request  &req, move_excavator::RetractArm::Response &res);
   bool ExcavatorFK(move_excavator::ExcavatorFK::Request &req, move_excavator::ExcavatorFK::Response &res);
   bool GoToPose(move_excavator::GoToPose::Request &req, move_excavator::GoToPose::Response &res);
   bool ControlInvJac(move_excavator::ControlInvJac::Request &req, move_excavator::ControlInvJac::Response &res);
@@ -94,6 +96,7 @@ private:
   ros::ServiceServer serverScoop;
   ros::ServiceServer serverAfterScoop;
   ros::ServiceServer serverLowerArm;
+  ros::ServiceServer serverRetractArm;
   ros::ServiceServer serverFK;
   ros::ServiceServer serverGoToPose;
   ros::ServiceServer serverControlInvJac;
@@ -145,7 +148,7 @@ private:
   geometry_msgs::PoseStamped SolveFK(double q1, double q2, double q3, double q4);
 
   // Inverse Kinematics Functions  
- std::pair<bool, Eigen::VectorXd> SolveIK(Eigen::VectorXd goal_xyz);
+  std::pair<bool, Eigen::VectorXd> SolveIK(Eigen::VectorXd goal_xyz);
   inline double RPolyFit(double x, double y);
   inline double ZPolyFit(double x, double y);
 
@@ -171,38 +174,38 @@ private:
   geometry_msgs::PointStamped goal_point_;
 
 
-// Polyfit coeffs
-double r00 =       2.009;  //(2.009, 2.009)
-double r10 =   4.812e-15;  //(-5.174e-05, 5.174e-05)
-double r01 =  -3.027e-16;  //(-5.174e-05, 5.174e-05)
-double r20 =     -0.7937;  //(-0.7938, -0.7936)
-double r11 =     -0.5267;  //(-0.5267, -0.5266)
-double r02 =     -0.1748;  //(-0.1749, -0.1747)
-double r30 =  -3.086e-15;  //(-5.097e-05, 5.097e-05)
-double r21 =  -4.278e-16;  //(-4.475e-05, 4.475e-05)
-double r12 =  -2.298e-16;  //(-4.475e-05, 4.475e-05)
-double r03 =    4.48e-16;  //(-5.097e-05, 5.097e-05)
-double r40 =     0.05932;  //(0.05923, 0.0594)
-double r31 =     0.07707;  //(0.07699, 0.07714)
-double r22 =      0.0767;  //(0.07663, 0.07678)
-double r13 =     0.03301;  //(0.03294, 0.03309)
-double r04 =    0.004992;  //(0.004907, 0.005077)
+  // Polyfit coeffs
+  double r00 =       2.009;  //(2.009, 2.009)
+  double r10 =   4.812e-15;  //(-5.174e-05, 5.174e-05)
+  double r01 =  -3.027e-16;  //(-5.174e-05, 5.174e-05)
+  double r20 =     -0.7937;  //(-0.7938, -0.7936)
+  double r11 =     -0.5267;  //(-0.5267, -0.5266)
+  double r02 =     -0.1748;  //(-0.1749, -0.1747)
+  double r30 =  -3.086e-15;  //(-5.097e-05, 5.097e-05)
+  double r21 =  -4.278e-16;  //(-4.475e-05, 4.475e-05)
+  double r12 =  -2.298e-16;  //(-4.475e-05, 4.475e-05)
+  double r03 =    4.48e-16;  //(-5.097e-05, 5.097e-05)
+  double r40 =     0.05932;  //(0.05923, 0.0594)
+  double r31 =     0.07707;  //(0.07699, 0.07714)
+  double r22 =      0.0767;  //(0.07663, 0.07678)
+  double r13 =     0.03301;  //(0.03294, 0.03309)
+  double r04 =    0.004992;  //(0.004907, 0.005077)
 
-double z00 =        0.12;  //(0.1198, 0.1202)
-double z10 =      -1.582;  //(-1.583, -1.582)
-double z01 =     -0.5224;  //(-0.5227, -0.5221)
-double z20 =   3.552e-16;  //(-0.000706, 0.000706)
-double z11 =   5.092e-16;  //(-0.0005825, 0.0005825)
-double z02 =  -1.241e-16;  //(-0.000706, 0.000706)
-double z30 =      0.2338;  //(0.2335, 0.2342)
-double z21 =      0.2259;  //(0.2257, 0.2262)
-double z12 =      0.1471;  //(0.1468, 0.1473)
-double z03 =     0.02976;  //(0.02944, 0.03008)
-double z40 =  -1.397e-15;  //(-0.0005312, 0.0005312)
-double z31 =  -3.808e-16;  //(-0.0004634, 0.0004634)
-double z22 =  -2.867e-16;  //(-0.0004549, 0.0004549)
-double z13 =  -1.396e-16;  //(-0.0004634, 0.0004634)
-double z04 =   1.901e-16;  //(-0.0005312, 0.0005312)
+  double z00 =        0.12;  //(0.1198, 0.1202)
+  double z10 =      -1.582;  //(-1.583, -1.582)
+  double z01 =     -0.5224;  //(-0.5227, -0.5221)
+  double z20 =   3.552e-16;  //(-0.000706, 0.000706)
+  double z11 =   5.092e-16;  //(-0.0005825, 0.0005825)
+  double z02 =  -1.241e-16;  //(-0.000706, 0.000706)
+  double z30 =      0.2338;  //(0.2335, 0.2342)
+  double z21 =      0.2259;  //(0.2257, 0.2262)
+  double z12 =      0.1471;  //(0.1468, 0.1473)
+  double z03 =     0.02976;  //(0.02944, 0.03008)
+  double z40 =  -1.397e-15;  //(-0.0005312, 0.0005312)
+  double z31 =  -3.808e-16;  //(-0.0004634, 0.0004634)
+  double z22 =  -2.867e-16;  //(-0.0004549, 0.0004549)
+  double z13 =  -1.396e-16;  //(-0.0004634, 0.0004634)
+  double z04 =   1.901e-16;  //(-0.0005312, 0.0005312)
 
 };
 
