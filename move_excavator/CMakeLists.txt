@@ -71,6 +71,7 @@ add_service_files(
   LowerArm.srv
   Scoop.srv
   AfterScoop.srv
+  RetractArm.srv
   ExcavatorFK.srv
   GoToPose.srv
   ControlInvJac.srv
