@@ -446,10 +446,14 @@ bool MoveArm::RetractArm(move_excavator::RetractArm::Request  &req, move_excavat
   ROS_INFO_STREAM("RETRACTING ARM.");
 
   motion_control::ArmGroup q;
-  q.q1 = 0;
-  q.q2 = JOINT2_MAX;
+  q.q1 = -M_PI;
+  q.q2 = JOINT2_MIN;
   q.q3 = JOINT3_MAX;
-  q.q4 = JOINT4_MIN; // + PITCH
+  q.q4 = 0 - q.q2 - q.q3; // + PITCH
+  // q.q1 = -M_PI;
+  // q.q2 = JOINT2_MAX;
+  // q.q3 = JOINT3_MIN;
+  // q.q4 = 0 - q.q2 - q.q3; // + PITCH
   // ROS_INFO_STREAM("Publishing joint angles (part 2):");
   // std::cout << q << std::endl;
   pubJointAngles.publish(q);
