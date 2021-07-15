@@ -27,6 +27,7 @@ MoveArm::MoveArm(ros::NodeHandle & nh)
   serverLowerArm = nh_.advertiseService("manipulation/lower_arm", &MoveArm::LowerArm, this);
   serverScoop = nh_.advertiseService("manipulation/scoop", &MoveArm::Scoop, this);
   serverAfterScoop = nh_.advertiseService("manipulation/after_scoop", &MoveArm::AfterScoop, this);
+  serverRetractArm = nh_.advertiseService("manipulation/retract_arm", &MoveArm::RetractArm, this);
   serverGoToPose = nh_.advertiseService("manipulation/go_to_pose", &MoveArm::GoToPose, this);
   serverControlInvJac = nh_.advertiseService("manipulation/control_inv_jac", &MoveArm::ControlInvJac, this);
   serverFK = nh_.advertiseService("manipulation/excavator_fk", &MoveArm::ExcavatorFK, this);
@@ -434,6 +435,26 @@ bool MoveArm::DropVolatile(move_excavator::DropVolatile::Request  &req, move_exc
     }
 
   }
+  return true;
+}
+
+bool MoveArm::RetractArm(move_excavator::RetractArm::Request  &req, move_excavator::RetractArm::Response &res)
+{
+  double heading_goal = req.heading;
+  double duration = req.timeLimit;
+
+  ROS_INFO_STREAM("RETRACTING ARM.");
+
+  motion_control::ArmGroup q;
+  q.q1 = 0;
+  q.q2 = JOINT2_MAX;
+  q.q3 = JOINT3_MAX;
+  q.q4 = JOINT4_MIN; // + PITCH
+  // ROS_INFO_STREAM("Publishing joint angles (part 2):");
+  // std::cout << q << std::endl;
+  pubJointAngles.publish(q);
+  ros::Duration(duration).sleep();
+
   return true;
 }
 
