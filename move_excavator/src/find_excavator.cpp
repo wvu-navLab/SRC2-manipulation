@@ -214,9 +214,9 @@ bool FindExcavator::FindExcavatorService(move_excavator::FindExcavator::Request 
     else
     {
     
-      if (currSensorYaw_ < -(M_PI /6.0))
+      if (currSensorYaw_ < -(M_PI /6.0) && (previous_direction == -1))
         direction_ = 1;
-      if (currSensorYaw_ > (M_PI / 6.0))
+      if (currSensorYaw_ > (M_PI / 6.0) && (previous_direction == 1))
         direction_ = -1;
 
       if(direction_ != previous_direction)

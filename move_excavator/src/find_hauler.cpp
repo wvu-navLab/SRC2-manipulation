@@ -407,13 +407,13 @@ bool FindHauler::ComputeHaulerPosition()
  	std::sort(keypointsl.begin(), keypointsl.end(), compareKeypoints);
  	std::sort(keypointsr.begin(), keypointsr.end(), compareKeypoints);
  	
- 	/*for (int i=0;i<keypointsl.size();i++){
- 		ROS_INFO("Left: Area %f", keypointsl[i].size);
- 	}
- 	for (int i=0;i<keypointsr.size();i++){
- 		ROS_INFO("Righ: Area %f", keypointsr[i].size);
- 	}
- 	ROS_INFO("____");*/
+ 	// for (int i=0;i<keypointsl.size();i++){
+ 	// 	ROS_INFO("Left: Area %f", keypointsl[i].size);
+ 	// }
+ 	// for (int i=0;i<keypointsr.size();i++){
+ 	// 	ROS_INFO("Righ: Area %f", keypointsr[i].size);
+ 	// }
+ 	// ROS_INFO("____");
  	
  	
  	int i=0; // Get the larger keypoints in each camera
@@ -440,6 +440,10 @@ bool FindHauler::ComputeHaulerPosition()
 				double bl = (double) (-(double)info_msgr_.P[3]/info_msgr_.P[0]);
 
 				z_ = sx/disparity*bl;
+
+        if ((keypointsl[i].size > 310) || (keypointsr[i].size > 310)) // correction when it is too close
+            z_-=0.27;
+
 				x_ = (keypointsl[i].pt.x-cx)/sx*z_;
 				y_ = (keypointsl[i].pt.y-cy)/sy*z_;
 			
