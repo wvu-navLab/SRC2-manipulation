@@ -6,8 +6,8 @@ template <typename T> int sgn(T val) {
     return (T(0) < val) - (val < T(0));
 }
 
-// #define SHOWIMG
-#define MIN_AREA 600
+//l#define SHOWIMG
+#define MIN_AREA 300
 
 void FindExcavator::CallBackFunc(int event, int x, int y, int flags, void* userdata)
 {
