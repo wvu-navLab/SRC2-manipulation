@@ -291,8 +291,8 @@ bool MoveArm::Scoop(move_excavator::Scoop::Request  &req, move_excavator::Scoop:
   for (int i = 0; i<101; i++) 
   {
     q.q1 = heading_goal;
-    q.q2 = i*JOINT2_MAX/100;
-    q.q3 = PI/2-i*JOINT2_MAX/100;
+    q.q2 = i*JOINT2_MAX/100.0;
+    q.q3 = PI/2-i*JOINT2_MAX/100.0;
     q.q4 = -PI/2; // + PITCH
     pubJointAngles.publish(q);
     ros::Duration(duration/100.0).sleep();
@@ -312,8 +312,8 @@ bool MoveArm::AfterScoop(move_excavator::AfterScoop::Request  &req, move_excavat
   for (int i = 0; i<101; i++) 
   {
     q.q1 = q1_curr_;
-    q.q2 = i*JOINT2_MIN/100;
-    q.q3 = PI/2-i*JOINT2_MIN/100;
+    q.q2 = i*JOINT2_MIN/100.0;
+    q.q3 = PI/2-i*JOINT2_MIN/100.0;
     q.q4 = -PI/2; // + PITCH
     pubJointAngles.publish(q);
     ros::Duration(duration/100.0).sleep();
@@ -338,25 +338,25 @@ bool MoveArm::ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator
     //RANGE TOO CLOSE
     res.success = false;
     q2_goal = JOINT2_MIN;
-    q3_goal = JOINT3_MAX-(PI/2);
+    q3_goal = JOINT3_MAX-(PI/2.0);
   }
   else if (range_goal >= 0.42 && range_goal < 1.45) 
   {
     res.success = true;
     q2_goal = JOINT2_MIN;
-    q3_goal = JOINT2_MIN + (range_goal - 0.42)/(1.45-0.42)*(JOINT3_MAX-JOINT3_MIN);
+    q3_goal = JOINT3_MIN + (range_goal - 0.42)/(1.45-0.42)*(JOINT3_MAX-JOINT3_MIN);
   }
   else if (range_goal >= 1.45 && range_goal < 1.83)
   {
     res.success = true;
     q2_goal = -0.6544;
-    q3_goal = JOINT3_MIN + (range_goal - 1.45)/(1.83-1.45)*(JOINT3_MAX-JOINT3_MIN);
+    q3_goal = -0.372 + (range_goal - 1.45)/(1.83-1.45)*(0.468-(-0.372));
   }
   else if (range_goal >= 1.83 && range_goal < 1.95)
   {
     res.success = true;
     q2_goal = -0.1785;
-    q3_goal = JOINT3_MIN + (range_goal - 1.83)/(1.95-1.83)*(-0.1507-JOINT3_MIN);
+    q3_goal = -0.438 + (range_goal - 1.83)/(1.95-1.83)*(-0.1507-(-0.438));
   }
   else
   {
@@ -393,9 +393,14 @@ bool MoveArm::ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator
 bool MoveArm::DropVolatile(move_excavator::DropVolatile::Request  &req, move_excavator::DropVolatile::Response &res)
 {
   int type = req.type;
+  double range = req.range;
   double duration = req.timeLimit;
 
-  ROS_INFO_STREAM("DROP VOLATILE.");
+  ROS_INFO_STREAM("DROP VOLATILE NEW.");
+
+  double q2_goal;
+  double q3_goal;
+  double wait_time;
 
   motion_control::ArmGroup q;
   if (type == 0)
@@ -412,17 +417,37 @@ bool MoveArm::DropVolatile(move_excavator::DropVolatile::Request  &req, move_exc
   }
   else
   {
+    if(range < 1.10)
+    {
+      q2_goal = JOINT2_MIN;
+      q3_goal = JOINT3_MAX *(3.0/4.0);
+      wait_time = 4.0;
+    }
+    else if (range>= 1.10 && range <1.60)
+    {
+      q2_goal = q2_curr_;
+      q3_goal = q3_curr_ + JOINT3_MAX;
+      wait_time = 2.0;
+    }
+    else
+    {
+      q2_goal = JOINT2_MIN * (9.0/16.0);
+      q3_goal = JOINT3_MAX *(3.0/4.0);
+      wait_time = 2.0;
+    }
+
+
     for (int i = 0; i<101; i++) 
     {
       q.q1 = q1_curr_;
-      q.q2 = q2_curr_ - (float) i/100.0*(PI/24.0); // + (float) i/100.0*(PI/24.0);
-      q.q3 = q3_curr_ + (float) i/100.0*(PI/4.0);
+      q.q2 = q2_curr_ - (float) i/100.0*(q2_curr_-q2_goal); // q.q2 = q2_curr_ - (float) i/100.0*(PI/24.0); // + (float) i/100.0*(PI/24.0);
+      q.q3 = q3_curr_ - (float) i/100.0*(q3_curr_-q3_goal); // q.q3 = q3_curr_ + (float) i/100.0*(PI/4.0);
       q.q4 = q4_curr_ - (float) i/100.0*(q4_curr_-JOINT4_MAX); // + PITCH
       pubJointAngles.publish(q);
       ros::Duration(duration/(100.0)).sleep();
     }
 
-    ros::Duration(2).sleep();
+    ros::Duration(wait_time).sleep();
     
     for (int i = 0; i<101; i++) 
     {

@@ -1,5 +1,10 @@
 <launch> 
   <group ns="small_excavator_1">
+    <param name="robot_name" value="small_excavator_1" />
+    <param name="robot_id" value="1" />
+
+    <include file="$(find motion_control)/launch/motion_control.launch"/>
+    
     <node pkg="move_excavator"
           name="move_arm"
           type="move_arm"
