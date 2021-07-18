@@ -337,24 +337,28 @@ bool MoveArm::ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator
   {
     //RANGE TOO CLOSE
     res.success = false;
+    res.approach = -1;
     q2_goal = JOINT2_MIN;
     q3_goal = JOINT3_MAX-(PI/2.0);
   }
   else if (range_goal >= 0.42 && range_goal < 1.45) 
   {
     res.success = true;
+    res.approach = 0;
     q2_goal = JOINT2_MIN;
     q3_goal = JOINT3_MIN + (range_goal - 0.42)/(1.45-0.42)*(JOINT3_MAX-JOINT3_MIN);
   }
   else if (range_goal >= 1.45 && range_goal < 1.83)
   {
     res.success = true;
+    res.approach = 0;
     q2_goal = -0.6544;
     q3_goal = -0.372 + (range_goal - 1.45)/(1.83-1.45)*(0.468-(-0.372));
   }
   else if (range_goal >= 1.83 && range_goal < 1.95)
   {
     res.success = true;
+    res.approach = 0;
     q2_goal = -0.1785;
     q3_goal = -0.438 + (range_goal - 1.83)/(1.95-1.83)*(-0.1507-(-0.438));
   }
@@ -362,8 +366,9 @@ bool MoveArm::ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator
   {
     //RANGE TOO FAR
     res.success = false;
-    q2_goal = JOINT2_MIN;
-    q3_goal = JOINT3_MAX-(PI/2);
+    res.approach = 1;
+    q2_goal = -0.1785;
+    q3_goal = -0.1507;
   }
 
   motion_control::ArmGroup q;
