@@ -430,7 +430,7 @@ bool MoveArm::DropVolatile(move_excavator::DropVolatile::Request  &req, move_exc
     }
     else if (range>= 1.10 && range <1.60)
     {
-      q2_goal = q2_curr_;
+      q2_goal = q2_curr_ + JOINT2_MIN * (1.0/6.0);
       q3_goal = q3_curr_ + JOINT3_MAX;
       wait_time = 2.0;
     }
