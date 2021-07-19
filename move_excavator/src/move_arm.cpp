@@ -441,15 +441,24 @@ bool MoveArm::DropVolatile(move_excavator::DropVolatile::Request  &req, move_exc
       wait_time = 2.0;
     }
 
+    for (int i = 0; i<101; i++) 
+    {
+      q.q1 = q1_curr_;
+      q.q2 = q2_curr_; // q.q2 = q2_curr_ - (float) i/100.0*(PI/24.0); // + (float) i/100.0*(PI/24.0);
+      q.q3 = q3_curr_; // q.q3 = q3_curr_ + (float) i/100.0*(PI/4.0);
+      q.q4 = q4_curr_ - (float) i/100.0*(q4_curr_-JOINT4_MAX); // + PITCH
+      pubJointAngles.publish(q);
+      ros::Duration(duration/(2*100.0)).sleep();
+    }
 
     for (int i = 0; i<101; i++) 
     {
       q.q1 = q1_curr_;
       q.q2 = q2_curr_ - (float) i/100.0*(q2_curr_-q2_goal); // q.q2 = q2_curr_ - (float) i/100.0*(PI/24.0); // + (float) i/100.0*(PI/24.0);
       q.q3 = q3_curr_ - (float) i/100.0*(q3_curr_-q3_goal); // q.q3 = q3_curr_ + (float) i/100.0*(PI/4.0);
-      q.q4 = q4_curr_ - (float) i/100.0*(q4_curr_-JOINT4_MAX); // + PITCH
+      q.q4 = JOINT4_MAX; // + PITCH
       pubJointAngles.publish(q);
-      ros::Duration(duration/(100.0)).sleep();
+      ros::Duration(duration/(2*100.0)).sleep();
     }
 
     ros::Duration(wait_time).sleep();
