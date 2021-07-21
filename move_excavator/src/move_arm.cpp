@@ -245,7 +245,7 @@ bool MoveArm::HomeArm(move_excavator::HomeArm::Request  &req, move_excavator::Ho
   double heading_goal = req.heading;
   double duration = req.timeLimit;
 
-  ROS_INFO_STREAM("HOMING ARM.");
+  ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. HOMING ARM.");
 
   motion_control::ArmGroup q;
   q.q1 = heading_goal;
@@ -265,7 +265,7 @@ bool MoveArm::LowerArm(move_excavator::LowerArm::Request  &req, move_excavator::
   double heading_goal = req.heading;
   double duration = req.timeLimit;
 
-  ROS_INFO_STREAM("LOWERING ARM.");
+  ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. LOWERING ARM.");
 
   motion_control::ArmGroup q;
   for (int i = 0; i<101; i++) 
@@ -285,7 +285,7 @@ bool MoveArm::Scoop(move_excavator::Scoop::Request  &req, move_excavator::Scoop:
   double heading_goal = req.heading;
   double duration = req.timeLimit;
   
-  ROS_INFO_STREAM("SCOOPING.");
+  ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. SCOOPING.");
 
   motion_control::ArmGroup q;
   for (int i = 0; i<101; i++) 
@@ -306,7 +306,7 @@ bool MoveArm::AfterScoop(move_excavator::AfterScoop::Request  &req, move_excavat
   double heading_goal = req.heading;
   double duration = req.timeLimit;
 
-  ROS_INFO_STREAM("AFTER SCOOP.");
+  ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. AFTER SCOOP.");
 
   motion_control::ArmGroup q;
   for (int i = 0; i<101; i++) 
@@ -401,7 +401,7 @@ bool MoveArm::DropVolatile(move_excavator::DropVolatile::Request  &req, move_exc
   double range = req.range;
   double duration = req.timeLimit;
 
-  ROS_INFO_STREAM("DROP VOLATILE NEW.");
+  ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. DROP VOLATILE.");
 
   double q2_goal;
   double q3_goal;
@@ -482,7 +482,7 @@ bool MoveArm::RetractArm(move_excavator::RetractArm::Request  &req, move_excavat
   double heading_goal = req.heading;
   double duration = req.timeLimit;
 
-  ROS_INFO_STREAM("RETRACTING ARM.");
+  ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. RETRACTING ARM.");
 
   motion_control::ArmGroup q;
   q.q1 = -M_PI;
@@ -521,7 +521,7 @@ bool MoveArm::ExcavatorFK(move_excavator::ExcavatorFK::Request  &req, move_excav
 
 bool MoveArm::GoToPose(move_excavator::GoToPose::Request  &req, move_excavator::GoToPose::Response &res)
 {
-  ROS_INFO_STREAM("MANIPULATION: Target point. Point:" << req.goal);
+  ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. Target point. Point:" << req.goal);
   // if (req.goal.header.frame_id != robot_name_+"_arm_mount")
   // {
   //   transform_to_arm_mount = tf_buffer.lookupTransform(robot_name_+"_arm_mount", req.goal.header.frame_id, ros::Time(0), ros::Duration(1.0));
@@ -535,7 +535,7 @@ bool MoveArm::GoToPose(move_excavator::GoToPose::Request  &req, move_excavator::
   goal_point_.point.x -= 0.7;
   goal_point_.point.z -= 0.1;
 
-  ROS_INFO_STREAM("MANIPULATION: Target updated (accounting for shift in x and z). Point:" << goal_point_);
+  ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. Target updated (accounting for shift in x and z). Point:" << goal_point_);
 
   
   // Fake position for testing
@@ -548,20 +548,20 @@ bool MoveArm::GoToPose(move_excavator::GoToPose::Request  &req, move_excavator::
 
   ros::spinOnce();
   start_joints << q1_curr_, q2_curr_, q3_curr_, q4_curr_;
-  ROS_INFO_STREAM("Starting joint angles:" << start_joints);
+  // ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. Starting joint angles:" << start_joints);
 
   double duration = req.timeLimit;
   goal_xyzp << goal_point_.point.x, goal_point_.point.y, goal_point_.point.z, 0; // The angle must be -15 to avoid droping the volatiles. Ideally it would be 0.
-  ROS_INFO_STREAM("Goal XYZP:" << goal_xyzp);
+  // ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. Goal XYZP:" << goal_xyzp);
 
   std::pair<bool, Eigen::VectorXd> p = SolveIK(goal_xyzp);
   bool flag_found_solution = p.first;
   Eigen::VectorXd goal_joints = p.second;
-  ROS_INFO_STREAM("Goal joint angles:" << goal_joints);
+  // ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. Goal joint angles:" << goal_joints);
 
   int steps = 50;
   Eigen::MatrixXd trajectory = Jtraj(start_joints, goal_joints, steps);
-  ROS_INFO_STREAM("Trajectory:" << trajectory);
+  // ROS_INFO_STREAM("Trajectory:" << trajectory);
 
   motion_control::ArmGroup q;
   for (int i = 0; i<steps; i++) 
@@ -577,7 +577,7 @@ bool MoveArm::GoToPose(move_excavator::GoToPose::Request  &req, move_excavator::
   }
 
   res.success = true;
-  ROS_INFO_STREAM("Success:" <<  res.success);
+  ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. Success:" <<  res.success);
   
   return true;
 }
@@ -588,7 +588,7 @@ bool MoveArm::GoToPose(move_excavator::GoToPose::Request  &req, move_excavator::
 
 geometry_msgs::PoseStamped MoveArm::SolveFK(double q1, double q2, double q3, double q4)
 {
-  ROS_INFO_STREAM("FORWARD KINEMATICS.");
+  ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. FORWARD KINEMATICS.");
 
   // theta_DH_ << 0, q1, q2, q3, q4;
   int N = theta_DH_.size();
@@ -641,7 +641,7 @@ geometry_msgs::PoseStamped MoveArm::SolveFK(double q1, double q2, double q3, dou
 
 std::pair<bool, Eigen::VectorXd> MoveArm::SolveIK(Eigen::VectorXd goal_xyzp)
 {
-  ROS_INFO_STREAM("Starting Inverse Kinematics");
+  ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. Starting Inverse Kinematics");
   // End effector position
   double x_goal = goal_xyzp(0);
   double y_goal = goal_xyzp(1);
@@ -650,7 +650,7 @@ std::pair<bool, Eigen::VectorXd> MoveArm::SolveIK(Eigen::VectorXd goal_xyzp)
 
   double r_goal = sqrt(x_goal*x_goal + y_goal*y_goal);
 
-  ROS_INFO_STREAM("Goal z: " << z_goal << ", goal r: " << r_goal << ".");
+  ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. Goal z: " << z_goal << ", goal r: " << r_goal << ".");
 
   // double r_E = r_goal - a1_ - a4_*cos(phi_goal);
   // double z_E = z_goal - d1_ - a4_*sin(phi_goal);
@@ -687,7 +687,7 @@ std::pair<bool, Eigen::VectorXd> MoveArm::SolveIK(Eigen::VectorXd goal_xyzp)
       error = hypot(r_test - r_goal, z_test - z_goal);
       if (error < 0.1)
       {
-        ROS_INFO_STREAM("Found solution");
+        // ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. Found solution");
         flag_found_solution = true;
         if (iter_q3 < min_q3_goal)
         {
@@ -708,9 +708,9 @@ std::pair<bool, Eigen::VectorXd> MoveArm::SolveIK(Eigen::VectorXd goal_xyzp)
         error = hypot(r_test - r_goal, z_test - z_goal);
         if (error < 0.3)
         {
-          ROS_INFO_STREAM("Found solution");
-          ROS_INFO_STREAM("Tested z: " << z_test << ", tested r: " << r_test << ".");
-          ROS_INFO_STREAM("Error " << error << ".");
+          // ROS_INFO_STREAM("Found solution");
+          // ROS_INFO_STREAM("Tested z: " << z_test << ", tested r: " << r_test << ".");
+          // ROS_INFO_STREAM("Error " << error << ".");
           flag_found_solution = true;
           if (iter_q2 < min_q2_goal)
           {
@@ -732,6 +732,10 @@ std::pair<bool, Eigen::VectorXd> MoveArm::SolveIK(Eigen::VectorXd goal_xyzp)
     q3_goal = q3_curr_;
     q4_goal = q4_curr_;
   }
+  else
+  {
+    ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. Found solution");
+  }
   // ConstrainAngle(q1_goal);
   // ConstrainAngle(q2_goal); 
   // ConstrainAngle(q3_goal); 
@@ -743,7 +747,7 @@ std::pair<bool, Eigen::VectorXd> MoveArm::SolveIK(Eigen::VectorXd goal_xyzp)
   // LimitJoint(q3_goal, JOINT3_MAX, JOINT3_MIN);
 
   
-  ROS_INFO_STREAM("The goal joint angles are q = (" << q1_goal << ", " << q2_goal << ", " << q3_goal << ", " << q4_goal << ").");
+  ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. The goal joint angles are q = (" << q1_goal << ", " << q2_goal << ", " << q3_goal << ", " << q4_goal << ").");
 
   // LimitJoint(q4_goal, JOINT4_MAX, JOINT4_MIN);
 
@@ -865,7 +869,7 @@ bool MoveArm::ControlInvJac(move_excavator::ControlInvJac::Request  &req, move_e
 
     qdot = pinvJ.block(0,0,3,3) * v;
 
-    ROS_INFO_STREAM("The goal joint angles velocities are qdot = (" << qdot(0) << ", " << qdot(1) << ", " << qdot(2) << ").");
+    // ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. The goal joint angles velocities are qdot = (" << qdot(0) << ", " << qdot(1) << ", " << qdot(2) << ").");
 
     q.q1 = q1_curr_ + dt_*qdot(0);
     q.q2 = q2_curr_ + dt_*qdot(1);
@@ -874,8 +878,8 @@ bool MoveArm::ControlInvJac(move_excavator::ControlInvJac::Request  &req, move_e
     LimitJoint(q.q3, JOINT3_MAX, JOINT3_MIN);
     q.q4 = 0 - (q.q2 + q.q3);
     
-    ROS_INFO_STREAM("Goal pose = (" << goal_xyz(0) << ", " << goal_xyz(1) << ", " << goal_xyz(2) << ").");
-    ROS_INFO_STREAM("The goal joint angles are q = (" << q.q1 << ", " << q.q2 << ", " << q.q3 << ", " << q.q4 << ").");
+    // ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. Goal pose = (" << goal_xyz(0) << ", " << goal_xyz(1) << ", " << goal_xyz(2) << ").");
+    // ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. The goal joint angles are q = (" << q.q1 << ", " << q.q2 << ", " << q.q3 << ", " << q.q4 << ").");
 
     pubJointAngles.publish(q);
     
@@ -886,12 +890,12 @@ bool MoveArm::ControlInvJac(move_excavator::ControlInvJac::Request  &req, move_e
 
     pos_current = T0Tn_.block(0,3,3,1);
 
-    ROS_INFO_STREAM("The current joint angles are q = (" << q1_curr_ << ", " << q2_curr_ << ", " << q3_curr_ << ", " << q4_curr_ << ").");
-    ROS_INFO_STREAM("Current pose = (" << pos_current(0) << ", " << pos_current(1) << ", " << pos_current(2) << ").");
+    // ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. The current joint angles are q = (" << q1_curr_ << ", " << q2_curr_ << ", " << q3_curr_ << ", " << q4_curr_ << ").");
+    // ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. Current pose = (" << pos_current(0) << ", " << pos_current(1) << ", " << pos_current(2) << ").");
 
     e = goal_xyz - pos_current;
 
-    ROS_INFO_STREAM("Error = (" << e(0) << ", " << e(1) << ", " << e(2) << ").");
+    // ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. Error = (" << e(0) << ", " << e(1) << ", " << e(2) << ").");
 
     pos_error = e.norm();
 
