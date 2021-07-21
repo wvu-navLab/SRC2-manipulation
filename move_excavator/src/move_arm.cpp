@@ -436,7 +436,7 @@ bool MoveArm::DropVolatile(move_excavator::DropVolatile::Request  &req, move_exc
     }
     else
     {
-      q2_goal = JOINT2_MIN * (9.0/16.0);
+      q2_goal = JOINT2_MIN * (7.0/16.0);
       q3_goal = JOINT3_MAX *(3.0/4.0);
       wait_time = 2.0;
     }
