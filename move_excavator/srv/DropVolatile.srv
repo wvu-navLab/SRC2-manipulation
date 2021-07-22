@@ -1,5 +1,6 @@
 int64 type
 float64 timeLimit
 float64 range
+float64 heading
 ---
 bool success

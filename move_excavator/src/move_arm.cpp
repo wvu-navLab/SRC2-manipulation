@@ -371,6 +371,12 @@ bool MoveArm::ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator
     q3_goal = -0.1507;
   }
 
+  if(heading_goal > 1.8 && heading_goal < 2.4 && heading_goal <= 1.3)
+  {
+    q2_goal = JOINT2_MIN;
+    q3_goal = -JOINT2_MIN;
+  }
+
   motion_control::ArmGroup q;
   for (int i = 0; i<101; i++) 
   {
@@ -381,15 +387,39 @@ bool MoveArm::ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator
     pubJointAngles.publish(q);
     ros::Duration(duration/(2*100.0)).sleep();
   }
-
-  for (int i = 0; i<101; i++) 
+  if(heading_goal > 2.4)
   {
-    q.q1 = (float) i/100.0*heading_goal;
-    q.q2 = JOINT2_MIN - (float) i/100.0*(JOINT2_MIN-q2_goal);
-    q.q3 = JOINT3_MIN - (float) i/100.0*(JOINT3_MIN-q3_goal);
-    q.q4 = 0 - (q.q2 + q.q3); // + PITCH
-    pubJointAngles.publish(q);
-    ros::Duration(duration/(2*100.0)).sleep();
+    for (int i = 0; i<101; i++) 
+    {
+      q.q1 = (float) i/100.0*heading_goal;
+      q.q2 = JOINT2_MIN;
+      q.q3 = JOINT3_MIN;
+      q.q4 = 0 - (q.q2 + q.q3); // + PITCH
+      pubJointAngles.publish(q);
+      ros::Duration(duration/(2*100.0)).sleep();
+    }
+
+    for (int i = 0; i<101; i++) 
+    {
+      q.q1 = heading_goal;
+      q.q2 = JOINT2_MIN - (float) i/100.0*(JOINT2_MIN-q2_goal);
+      q.q3 = JOINT3_MIN - (float) i/100.0*(JOINT3_MIN-q3_goal);
+      q.q4 = 0 - (q.q2 + q.q3); // + PITCH
+      pubJointAngles.publish(q);
+      ros::Duration(duration/(2*100.0)).sleep();
+    }
+  }
+  else
+  {
+    for (int i = 0; i<101; i++) 
+    {
+      q.q1 = (float) i/100.0*heading_goal;
+      q.q2 = JOINT2_MIN - (float) i/100.0*(JOINT2_MIN-q2_goal);
+      q.q3 = JOINT3_MIN - (float) i/100.0*(JOINT3_MIN-q3_goal);
+      q.q4 = 0 - (q.q2 + q.q3); // + PITCH
+      pubJointAngles.publish(q);
+      ros::Duration(duration/(2*100.0)).sleep();
+    }
   }
 
   return true;
@@ -398,7 +428,8 @@ bool MoveArm::ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator
 bool MoveArm::DropVolatile(move_excavator::DropVolatile::Request  &req, move_excavator::DropVolatile::Response &res)
 {
   int type = req.type;
-  double range = req.range;
+  double range_goal = req.range;
+  double heading_goal = req.heading;
   double duration = req.timeLimit;
 
   ROS_INFO_STREAM("[" << robot_name_ << "] " << "MANIPULATION. DROP VOLATILE.");
@@ -422,13 +453,13 @@ bool MoveArm::DropVolatile(move_excavator::DropVolatile::Request  &req, move_exc
   }
   else
   {
-    if(range < 1.10)
+    if(range_goal < 1.10)
     {
       q2_goal = JOINT2_MIN;
       q3_goal = JOINT3_MAX *(3.0/4.0);
       wait_time = 4.0;
     }
-    else if (range>= 1.10 && range <1.60)
+    else if (range_goal>= 1.10 && range_goal <1.60)
     {
       q2_goal = q2_curr_ + JOINT2_MIN * (1.0/6.0);
       q3_goal = q3_curr_ + JOINT3_MAX;
@@ -439,6 +470,12 @@ bool MoveArm::DropVolatile(move_excavator::DropVolatile::Request  &req, move_exc
       q2_goal = JOINT2_MIN * (7.0/16.0);
       q3_goal = JOINT3_MAX *(3.0/4.0);
       wait_time = 2.0;
+    }
+
+    if(heading_goal > 1.8 && heading_goal < 2.4 && range_goal <= 1.3)
+    {
+      q2_goal = JOINT2_MIN;
+      q3_goal = -JOINT2_MIN;
     }
 
     for (int i = 0; i<101; i++) 
