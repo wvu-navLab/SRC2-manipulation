@@ -378,15 +378,64 @@ bool MoveArm::ExtendArm(move_excavator::ExtendArm::Request  &req, move_excavator
   }
 
   motion_control::ArmGroup q;
-  for (int i = 0; i<101; i++) 
+  if(abs(heading_goal) < M_PI/6)
   {
-    q.q1 = q1_curr_ - (float) i/100.0*q1_curr_;
-    q.q2 = q2_curr_ - (float) i/100.0*(q2_curr_-JOINT2_MIN);
-    q.q3 = q3_curr_ - (float) i/100.0*(q3_curr_-JOINT3_MIN);
-    q.q4 = 0 - (q.q2 + q.q3); // + PITCH
-    pubJointAngles.publish(q);
-    ros::Duration(duration/(2*100.0)).sleep();
+    if (heading_goal>0)
+    {
+      for (int i = 0; i<101; i++) 
+      {
+        q.q1 = q1_curr_ - (float) i/100.0*(q1_curr_-(-M_PI_4));
+        q.q2 = q2_curr_ - (float) i/100.0*(q2_curr_-JOINT2_MIN);
+        q.q3 = q3_curr_;
+        q.q4 = 0 - (q.q2 + q.q3); // + PITCH
+        pubJointAngles.publish(q);
+        ros::Duration(duration/(2*100.0)).sleep();
+      }   
+      for (int i = 0; i<101; i++) 
+      {
+        q.q1 = (-M_PI_4) - (float) i/100.0*((-M_PI_4)-0.0);
+        q.q2 = JOINT2_MIN;
+        q.q3 = q3_curr_ - (float) i/100.0*(q3_curr_-JOINT3_MIN);
+        q.q4 = 0 - (q.q2 + q.q3); // + PITCH
+        pubJointAngles.publish(q);
+        ros::Duration(duration/(2*100.0)).sleep();
+      }
+    }
+    else
+    {
+      for (int i = 0; i<101; i++) 
+      {
+        q.q1 = q1_curr_ - (float) i/100.0*(q1_curr_-M_PI_4);
+        q.q2 = q2_curr_ - (float) i/100.0*(q2_curr_-JOINT2_MIN);
+        q.q3 = q3_curr_;
+        q.q4 = 0 - (q.q2 + q.q3); // + PITCH
+        pubJointAngles.publish(q);
+        ros::Duration(duration/(2*100.0)).sleep();
+      } 
+      for (int i = 0; i<101; i++) 
+      {
+        q.q1 = M_PI_4 - (float) i/100.0*(M_PI_4-0.0);
+        q.q2 = JOINT2_MIN;
+        q.q3 = q3_curr_ - (float) i/100.0*(q3_curr_-JOINT3_MIN);
+        q.q4 = 0 - (q.q2 + q.q3); // + PITCH
+        pubJointAngles.publish(q);
+        ros::Duration(duration/(2*100.0)).sleep();
+      }
+    }
   }
+  else
+  {
+    for (int i = 0; i<101; i++) 
+    {
+      q.q1 = q1_curr_ - (float) i/100.0*q1_curr_;
+      q.q2 = q2_curr_ - (float) i/100.0*(q2_curr_-JOINT2_MIN);
+      q.q3 = q3_curr_ - (float) i/100.0*(q3_curr_-JOINT3_MIN);
+      q.q4 = 0 - (q.q2 + q.q3); // + PITCH
+      pubJointAngles.publish(q);
+      ros::Duration(duration/(2*100.0)).sleep();
+    }
+  }
+
   if(heading_goal > 2.4)
   {
     for (int i = 0; i<101; i++) 
